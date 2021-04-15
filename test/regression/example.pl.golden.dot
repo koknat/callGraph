@@ -1,0 +1,20 @@
+digraph test {
+	graph [rankdir=LR, ratio="0.7", concentrate=true];
+	node [label="\N", shape=Mrecord];
+	graph [bb="0,0,1880,1316"];
+	node1 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example.pl\n__MAIN__", color="/greens3/3", fillcolor="/greens3/2", style=filled, pos="204,1048.6", width="5.6667", height="0.65278"];
+	node2 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example.pl\nbar", pos="1127,815.65", width="5.6667", height="0.65278"];
+	node3 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example.pl\nbaz", pos="1641,1158.6", width="5.6667", height="0.65278"];
+	node4 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example.pl\nfoo", pos="648,815.65", width="5.6667", height="0.65278"];
+	node5 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example_helper_lib.pm\nabc", pos="1127,376.65", width="6.6111", height="0.65278"];
+	node6 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example_helper_lib.pm\ndef", pos="1641,596.65", width="6.6111", height="0.65278"];
+	node7 [label="/home/scratch.ckoknat_cad/ate/dftqtracker/qa/callGraph/test/example_helper_lib.pm\nghi", pos="1641,157.65", width="6.6111", height="0.65278"];
+	node1 -> node3 [pos="e,1436.8,1143 408.36,1064.3 678.36,1085 1151.8,1121.2 1426.7,1142.2"];
+	node1 -> node4 [pos="e,603.98,838.74 248.2,1025.5 330.39,982.32 506.44,889.93 594.93,843.5"];
+	node2 -> node2 [pos="e,1215.8,838.83 1038.2,838.83 1032,848.47 1061.6,856.65 1127,856.65 1171.4,856.65 1199.3,852.87 1210.7,847.42"];
+	node2 -> node3 [pos="e,1606.3,1135.5 1161.5,838.68 1252.4,899.33 1498.1,1063.3 1597.9,1129.9"];
+	node4 -> node2 [pos="e,922.87,815.65 852.18,815.65 872.21,815.65 892.57,815.65 912.69,815.65"];
+	node4 -> node5 [pos="e,1101.6,399.88 673.41,792.35 754.04,718.46 1004,489.33 1094.2,406.72"];
+	node5 -> node6 [pos="e,1586.9,573.5 1181,399.77 1276.8,440.75 1475.6,525.87 1577.7,569.53"];
+	node5 -> node7 [pos="e,1586.9,180.69 1181,353.62 1276.8,312.84 1475.6,228.1 1577.7,184.64"];
+}

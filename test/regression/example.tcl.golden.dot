@@ -1,0 +1,15 @@
+digraph test {
+	graph [rankdir=LR, ratio="0.7", concentrate=true];
+	node [label="\N", shape=Mrecord];
+	graph [bb="0,0,350,245"];
+	node1 [label=__MAIN__, color="/greens3/3", fillcolor="/greens3/2", style=filled, pos="40,206.03", width="1.1111", height="0.51389"];
+	node2 [label=bar, pos="323,147.03", width="0.75", height="0.51389"];
+	node3 [label=big, pos="143,156.03", width="0.75", height="0.51389"];
+	node4 [label=d, pos="233,156.03", width="0.75", height="0.51389"];
+	node5 [label=foo, pos="233,39.027", width="0.75", height="0.51389"];
+	node1 -> node2 [pos="e,297.16,165.03 80.363,206.74 125.28,206.42 199.51,202.52 260,183.03 269.71,179.9 279.59,175.14 288.55,170.11"];
+	node1 -> node3 [pos="e,115.89,169.19 77.185,187.98 86.78,183.32 97.094,178.31 106.65,173.67"];
+	node3 -> node4 [pos="e,205.71,156.03 170,156.03 178.03,156.03 186.97,156.03 195.53,156.03"];
+	node3 -> node5 [pos="e,218.97,57.265 156.87,138 171.82,118.56 195.77,87.429 212.81,65.273"];
+	node5 -> node2 [pos="e,307.96,128.98 248.27,57.347 262.9,74.908 285.13,101.58 301.54,121.28"];
+}
