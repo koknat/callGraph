@@ -1,6 +1,6 @@
-## A multi-language tool which parses source code for function definitions and calls
+## A multi-language tool to source code for function definitions and calls
 callGraph generates a .png call graph and displays it<br>
-The parser was designed for Python/Perl/TCL, and has been extended for other languages
+The parser was designed for Python / Perl / TCL, and has been extended for other languages
 !["Sample output of Python"](test/regression/example.py.golden.png)
 
     Usage:
