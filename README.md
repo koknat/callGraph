@@ -71,7 +71,7 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
             but those have not been well tested.
         
     Acknowlegements:
-        This code utilizes core functionality from perl_call_graph.pl by Stephen Riehm s.riehm@opensauce.de
+        This code utilizes core functionality from https://github.com/cobber/perl_call_graph
 
     Requirements:
         GraphViz and the Perl GraphViz library must be installed:
