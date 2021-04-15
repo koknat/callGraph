@@ -70,7 +70,6 @@
             awk, fortran, go, lua, java, javascript, pascal, php, r, raku, ruby, and swift,
             but those have not been well tested.
         
-
     Acknowlegements:
         This code utilizes core functionality from perl_call_graph.pl by Stephen Riehm s.riehm@opensauce.de
 
