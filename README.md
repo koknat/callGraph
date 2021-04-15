@@ -1,6 +1,6 @@
-    callGraph is a multi-language tool which parses source code for function definitions and calls.<br>
-    It generates a .png call graph and displays it on screen.<br>
-    The parser was designed for Perl/Python/TCL, and has been extended for other languages.<br>
+    callGraph is a multi-language tool which parses source code for function definitions and calls.
+    It generates a .png call graph and displays it on screen.
+    The parser was designed for Perl/Python/TCL, and has been extended for other languages.
 
 	Usage:
 		callGraph  <files>  <options>
