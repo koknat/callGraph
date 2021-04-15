@@ -1,9 +1,7 @@
 ## callGraph is a multi-language tool which parses source code for function definitions and calls.
 It generates a .png call graph and displays it on screen.<br>
 The parser was designed for Perl/Python/TCL, and has been extended for other languages.
-
 !["Sample output of Python"](test/regression/example.py.golden.png)
-
     Usage:
         callGraph  <files>  <options>
         
