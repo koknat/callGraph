@@ -14,7 +14,7 @@ sub usage {
 '$scriptName' by Chris Koknat  https://github.com/koknat/callGraph
 
 Purpose:
-    $scriptName is a multi-language tool which parses source code for function definitions and calls.
+    $scriptName is a multi-language tool to parse source code for function definitions and calls.
     It generates a .png call graph and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages.
 
@@ -82,13 +82,12 @@ Notes:
     Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
         and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
     It should also work on many other languages, such as:
-        awk, fortran, go, lua, java, javascript, pascal, php, r, raku, ruby, and swift,
+        awk, fortran, go, lua, java, javascript, matlab, pascal, php, r, raku, ruby, and swift,
         but those have not been well tested.
     ";
     $usage .= "
-
 Acknowlegements:
-    This code utilizes core functionality from perl_call_graph.pl by Stephen Riehm s.riehm\@opensauce.de
+    This code utilizes core functionality from https://github.com/cobber/perl_call_graph
 
 Requirements:
     GraphViz and the Perl GraphViz library must be installed:
@@ -125,7 +124,6 @@ Getopt::Long::GetOptions(
     #'cluster!',
     'help|?',
     'output=s',
-    'comments',                  # remove comments, delete this later ####
     'start=s',
     'ignore=s',
     'fullPath',
@@ -192,7 +190,7 @@ die "\nERROR:  language could not be determined.  Use option -language <language
 
 # Define the regular expressions which detect function definitions & calls
 my %languageSyntax = (
-    # http://rigaux.org/language-study/syntax-across-languages.html#FnctnFnctDfnt
+    # http://rigaux.org/language-study/syntax-across-languages.html
     # If you want to support another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
     functionDefinition => {
         awk => '^(\s*)(function)\s+(\w+)\s*\(.*\)',
@@ -200,6 +198,7 @@ my %languageSyntax = (
         go => '^(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',  # Non-greedy because of func (f *Field) Alive(x, y int) bool {}
         js => '^(\s*)(function)\s+(\w+)\s*\(.*\)',
         lua => '^(\s*)(function)\s+(\w+)\s*\(.*\)',
+        m => '^(\s*)(function).*=\s*(\w+)\s*\(.*\)',  # matlab
         pas => '^(\s*)(function)\s+(\w+)\s*\(.*\)',
         php => '^(\s*)(function)\s+(\w+)\s*\(.*\)',
         pl => '^(\s*)(sub)\s+(\w+)',
@@ -211,50 +210,80 @@ my %languageSyntax = (
         # public static void main(String[] args) {}
         # Since java function does not begin with 'function' or similar, require that the opening curly brace is on the same line
         #         spaces         public static                                                                         void                foo
-        java => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
-        # int main(int argc, char *argv[]) {}
-        cpp  => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
+        java => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*\{\s*$',
         # cpp regex will be somewhat similar to java, but a lot more complicated.  I'm not pursuing this
         # To create a cpp call graph:
         #     clang++ -S -emit-llvm main.cpp -o - | opt -analyze -dot-callgraph
         #     dot -Tpng -ocallgraph.png callgraph.dot
+        cpp  => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
+        # Attempting to support basic C syntax
+        # int main(int argc, char *argv[])
+        # int CTclParser::SplitList( int *line, char *list, int *argcPtr, char ***argvPtr )
+        c    => '^(\s*)([^(]+)\s+(\S+)\s*\(.*\)',
     },
     functionEnd => {
         # TODO
         py => '^$funcSpaces[-1]\S',
     },
     functionCall => {
-        awk => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        cpp => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        for => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        go => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        java => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        js => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        lua => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        pas => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        php => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        pl => '^.*?(?<![\$\%\@])(\w+)\s*',
-        py => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        r => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        rb => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        swift => '^.*?(?<![\$\%\@])(\w+)\s*\(',
-        tcl => '^.*?(?<![\$\%\@])(\w+)\s*',
+        awk   => '(\w+)\s*\(',
+        c     => '(\w+)\s*\(',
+        cpp   => '(\w+)\s*\(',
+        for   => '(\w+)\s*\(',
+        go    => '(\w+)\s*\(',
+        java  => '(\w+)\s*\(',
+        js    => '(\w+)\s*\(',
+        lua   => '(\w+)\s*\(',
+        m     => '(\w+)\s*\(',
+        pas   => '(\w+)\s*\(',
+        php   => '(?<![\$])(\w+)\s*\(',  # (?< ...) is a negative lookahead assertion
+        pl    => '(?<![\$\%\@])(\w+)\s*',  # can call some functions without the '('
+        py    => '(\w+)\s*\(',
+        r     => '(\w+)\s*\(',
+        rb    => '(\w+)\s*\(',
+        swift => '(\w+)\s*\(',
+        tcl   => '(?<![\$])(\w+)\s*',
+    },
+    variable => {
+        # This only affects the global variable searching with -verbose mode
+        awk => '(\w+)',
+        c => '(\w+)',
+        cpp => '(\w+)',
+        for => '(\w+)',
+        go => '(\w+)',
+        java => '(\w+)',
+        js => '(\w+)',
+        lua => '(\w+)',
+        m => '(\w+)',
+        pas => '(\w+)',
+        php => '[\$]\{?(\w+)',
+        pl => '[\$\@\%]\{?(\w+)',
+        py => '(\w+)',
+        r => '(\w+)',
+        rb => '(\w+)',
+        swift => '(\w+)',
+        tcl => '(\w+)',  # set foo $bar  <- one of the variables does not have a '$'
     },
     comment => {
-        # Comments will be removed
-        awk => '\s*#.*',
-        cpp => '\s*//.*',      # doesn't handle multiline comments
-        go => '\s*//.*',
-        java => '\s*//.*',     # doesn't handle multiline comments
-        js => '\s*//.*',
-        php => '\s*(//|#).*',  # doesn't handle multiline comments
-        pl => '\s*#.*',        # unless $line =~ /s#[^#]+#[^#]+#/;
-        py => '\s*#.*',
-        r => '\s*#.*',
-        rb => '\s*#.*',
-        swift => '\s*//.*',    # doesn't handle multiline comments
-        tcl => '\s*;?\s*#.*',  # remove comments and superfluous ';'
-    }
+        # Comments are removed
+        awk => '#',
+        c => '//',        # doesn't handle multiline comments
+        cpp => '//',      # doesn't handle multiline comments
+        for => '!',
+        go => '//',
+        java => '//',     # doesn't handle multiline comments
+        js => '//',
+        lua => '--',
+        m => '%',
+        pas => '(//|\{.*\}|\(\*.*\*\))',
+        php => '(//|#)',  # doesn't handle multiline comments
+        pl => '#',        # unless $line =~ /s#[^#]+#[^#]+#/;
+        py => '#',
+        r => '#',
+        rb => '#',
+        swift => '//',    # doesn't handle multiline comments
+        tcl => ';?\s*#',  # remove comments and superfluous ';'
+    },
 );
 if ( ! defined $languageSyntax{functionDefinition}{$language} ) {
     say "ERROR:  Language not recognized.  Specify it with  -language <language>";
@@ -277,7 +306,7 @@ for my $file (@files) {
         chomp($line);
         my $originalLine = $line;
         $shebang = $line if $. == 1 and $line =~ /^#!/;
-        next if $line =~ /^\s*(#.*)?$/;    # skip empty lines and comments
+        next if $line =~ /^\s*(#.*)?$/;    # skip empty lines and whole-line comments
         d '$line';
 
         if ( $line =~ /^__END__/ ) {
@@ -293,9 +322,9 @@ for my $file (@files) {
 
         # Remove comments.  This is not 100% optimal, as '#' may exist in the middle of a "string"
         if ( $language eq 'pl' ) {
-            $line =~ s/$languageSyntax{comment}{$language}// unless $line =~ /s#[^#]+#[^#]+#/;
+            $line =~ s/\s*$languageSyntax{comment}{$language}.*// unless $line =~ /s#[^#]+#[^#]+#/;
         } else {
-            $line =~ s/$languageSyntax{comment}{$language}//;
+            $line =~ s/\s*$languageSyntax{comment}{$language}.*//;
         }
 
         # Handle '\' line continuation characters
@@ -363,7 +392,7 @@ for my $file (@files) {
                     pop @funcName;
                     pop @funcSpaces;
                 }
-            } elsif ( $line =~ /^$funcSpaces[-1]}/  or  $language =~ /(lua|pas|rb)/ and $line =~ /^end/  or  $language eq 'for' and $line =~ /^function end/i ) {
+            } elsif ( $line =~ /^$funcSpaces[-1]}/  or  $language =~ /(lua|m|pas|rb)/ and $line =~ /^end/  or  $language eq 'for' and $line =~ /^function end/i ) {
                 d "Found end of function $funcName[-1]";
                 if ( $funcSpaces[0] eq '' ) {
                     # This is a tweak designed to potentially recover from incorrect parsing, such as a function which starts at the left border, but whose ending curly braces is not at the left border
@@ -380,7 +409,7 @@ for my $file (@files) {
         $funcContents->{$funcName[-1]}{$file} .= "$line\n";
 
         # Find anything that looks like it might be a function, casting a very wide net
-        while ( $line =~ s/$languageSyntax{functionCall}{$language}// ) {
+        while ( $line =~ s/^.*?$languageSyntax{functionCall}{$language}// ) {
             my $call = $1;
             if ( $language =~ /^(tcl|pl)$/ ) {
                 $call =~ s/^.*://;    # Remove package::
@@ -536,12 +565,12 @@ if ( $opt{verbose} ) {
                 # Find anything which might be a var
                 # $var @var %var ${var}
                 d '$originalLine';
-                while ( $originalLine =~ s/[\$\@\%]\{?(\w+)// ) {
+                while ( $originalLine =~ s/$languageSyntax{variable}{$language}// ) {
                     my $var = $1;
                     # $globalRunCount++;
                     d '$var';
                     d '$originalLine';
-                    next if $var =~ /^(_|\d)$/;
+                    next if $var =~ /^(_|\d+)$/;
                     $sub_info{$file}{$sub}{vars}{$var}++;
                 }
             }
@@ -567,7 +596,7 @@ if ( $opt{verbose} ) {
                     # Find anything which might be a var
                     # $var ${var}
                     d '$line';
-                    while ( $line =~ s/(\w+)// ) {
+                    while ( $line =~ s/$languageSyntax{variable}{$language}// ) {
                         my $var = $1;
                         d '$var';
                         d '$line';
@@ -586,12 +615,12 @@ if ( $opt{verbose} ) {
                 # Find anything which might be a var
                 # $var @var %var ${var}
                 d '$originalLine';
-                while ( $originalLine =~ s/(\w+)// ) {
+                while ( $line =~ s/$languageSyntax{variable}{$language}// ) {
                     my $var = $1;
                     #'    globalRunCount = globalRunCount + 1
                     d '$var';
                     d '$originalLine';
-                    next if $var =~ /^(_|\d)$/;
+                    next if $var =~ /^(\d+)$/;
                     $sub_info{$file}{$sub}{vars}{$var}++;
                 }
             }
@@ -641,8 +670,8 @@ if ( $opt{verbose} ) {
                     }
                 } else {
                     if ( defined $sub_info{$file}{$sub}{vars}{$var} and not defined $sub_info{$file}{$var} and ( defined $sub_info{$file}{$main}{vars}{$var} or $var =~ /^(ARGV|ENV|INC|SIG)$/ ) ) {
-                        if ( $language eq 'py' and $var =~ /^(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)$/ ) {
-                            # do nothing, keyword
+                        if ( $language eq 'py' and $var =~ /^(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|gz|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|\d+|__\S+__|all|args|at|basename|by|collections|cwd|date|datetime|dict|each|end|error|exists|f|file|files|find|format|get|getcwd|group|help|i|include|int|key|len|limit|map|match|math|matlib|numpy|object|open|os|path|print|r|random|reduce|rename|replace|size|str|strip|time|using|w|warning)$/ ) {
+                            # do nothing, keyword or probably not a global variable name
                         } else {
                             $sub_info{$file}{$sub}{usedGlobalVars}{$var} = 1;
                         }
@@ -746,10 +775,10 @@ sub getScriptType {
     my $file = $options{file};
     $file =~ s/#.*//;  # Remove p4 rev number
     my $filetype;
-    if ( $file =~ /\.(awk|cpp|for|go|java|js|lua|php|r|pl|py|rb|swift|tcl)$/i ) {
+    if ( $file =~ /\.(awk|c|cpp|for|go|java|js|lua|m|php|r|pl|py|rb|swift|tcl)$/i ) {
         $filetype = lc($1);
         return $filetype;
-    } elsif ( $file =~ /\.c$/ ) {
+    } elsif ( $file =~ /\.cc$/ ) {
         return 'cpp';
     } elsif ( $file =~ /\.(f\d+|fortran)$/ ) {
         return 'for';
@@ -906,7 +935,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v7 Thu Apr 15 13:01:24 PDT 2021
+v8 Fri Apr 16 10:17:24 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify

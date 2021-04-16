@@ -64,17 +64,21 @@ if ($@) {
     exit 1;
 }
 
-if ( runtests('basic') ) {
-    say $separator;
+say $separator;
+if ( runtests('tcl|basic') ) {
     runBasic("$testDir/example.tcl", "-noShow", "$regressionDir/example.tcl.dot");  # .dot creation instead of .png
     runCmpFiles("$testDir/example.tcl", "-noShow -v", "$regressionDir/example.tcl.png");
     say $separator;
+}
+if ( runtests('pl|basic') ) {
     runBasic("$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot");  # .dot creation instead of .png
     runCmpFiles("$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow -v -fullpath -ignore say", "$regressionDir/example.pl.png");
+}
+if ( runtests('py|basic') ) {
     say $separator;
     runCmpFiles("$testDir/example.py", "-noShow -v", "$regressionDir/example.py.png");
 }
-if ( runtests('remaining') ) {
+if ( runtests('other') ) {
     say $separator;
     runCmpFiles("$testDir/example.js", "-noShow -v", "$regressionDir/example.js.png");
     say $separator;
@@ -348,7 +352,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v7 Thu Apr 15 13:01:24 PDT 2021
+v8 Fri Apr 16 10:17:24 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
