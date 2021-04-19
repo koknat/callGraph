@@ -35,13 +35,13 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
                                    If neither of those give clues, use this option to specify 'pl' or 'tcl' or 'py'.
 
         -output <filename>         Specify an output filename
-                                   By default, the .svg file is named according to the first filename.
+                                   By default, the .png file is named according to the first filename.
                                    If a filename ending in .dot is given, only the intermediate .dot file is created.
 
         -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
                                    This can be useful when trying to comprehend a large set of legacy code.
 
-        -noShow                    By default, the svg file is displayed.  This option prevents that behavior.
+        -noShow                    By default, the png file is displayed.  This option prevents that behavior.
 
         -fullPath                  By default, the script strips off the path name of the input file(s).
                                    This option prevents that behavior.
