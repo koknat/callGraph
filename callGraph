@@ -18,7 +18,7 @@ sub usage {
 
 Purpose:
     $scriptName is a multi-language tool to parse source code for function definitions and calls.
-    It generates a .svg or .png call graph and displays it on screen.
+    It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages.
 
 Usage:
@@ -53,14 +53,14 @@ Options:
                                If neither of those give clues, use this option to specify 'pl' or 'tcl' or 'py'.
 
     -output <filename>         Specify an output filename
-                               By default, the .svg file is named according to the first filename.
-                               If a filename ending in .png is given, png format is used
+                               By default, the .png file is named according to the first filename.
+                               If a filename ending in .svg is given, svg format is used
                                If a filename ending in .dot is given, only the intermediate .dot file is created.
 
     -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
                                This can be useful when trying to comprehend a large set of legacy code.
 
-    -noShow                    By default, the .svg file is displayed.  This option prevents that behavior.
+    -noShow                    By default, the .png file is displayed.  This option prevents that behavior.
 
     -fullPath                  By default, the script strips off the path name of the input file(s).
                                This option prevents that behavior.
@@ -103,7 +103,7 @@ Requirements:
 }
 
 # Changes from original code:
-#     automatically convert dot to svg using system command 'dot -Tsvg', and displays svg to screen using 'eog' or similar
+#     automatically convert dot to png using system command 'dot -Tpng', and displays png to screen using 'eog' or similar
 #     do not print the filename in the graph bubbles unless multiple files are given
 #     support TCL, Python, and other languages
 #     handles '\' line continuation characters
@@ -113,13 +113,6 @@ Requirements:
 #     code works on any version of Perl (but still needs GraphViz library)
 # Additional caveats:
 #     it is assumed that function names are unique across files
-
-# Debugger from CPAN: "sudo cpan" "install Debug::Statements"
-sub D  { say "Debug::Statements has been disabled" }
-sub d  { }
-sub ls { }
-#use lib "/home/ate/scripts/regression";
-#use Debug::Statements ":all";    # d ''
 
 my %opt;
 my $d;
@@ -139,6 +132,14 @@ Getopt::Long::GetOptions(
     'd' => sub { $d = 1 },
 ) or usage();
 usage() if $opt{help} or ! @ARGV;
+
+# Debugger from CPAN: "sudo cpan" "install Debug::Statements"
+sub D  { say "Debug::Statements has been disabled" }
+sub d  { say "Debug::Statements has been disabled" if $d }
+sub ls { }
+#use lib "/home/ate/scripts/regression";
+#use Debug::Statements ":all";    # d ''
+
 d '%opt';
 my @files = @ARGV;
 for my $file (@ARGV) {
@@ -222,14 +223,14 @@ my %languageSyntax = (
         # cpp regex will be somewhat similar to java, but a lot more complicated.  I'm not pursuing this
         # To create a cpp call graph:
         #     clang++ -S -emit-llvm main.cpp -o - | opt -analyze -dot-callgraph
-        #     dot -Tsvg -ocallgraph.svg callgraph.dot
+        #     dot -Tpng -ocallgraph.png callgraph.dot
         #cpp  => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
-        cpp   => '^(\s*)(?=void|int|short|long|double|char)([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+        cpp   => '^(\s*)(?=.*(?:void|bool|int|short|long|double|char))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
         # Attempting to support simple C syntax
         # int main(int argc, char *argv[])
         # int CTclParser::SplitList( int *line, char *list, int *argcPtr, char ***argvPtr )
         #c    => '^(\s*)([^(]+)\s+(\S+)\s*\(.*\)',
-        c     => '^(\s*)(?=void|int|short|long|double|char)([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+        c     => '^(\s*)(?=.*(?:void|bool|int|short|long|double|char))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
     },
     functionEnd => {
         awk => '\s*}',
@@ -337,11 +338,13 @@ for my $file (@files) {
         # Convert ')\n{' to ') {', which is only needed for C/C++/Java
         $fileContent =~ s/\)\s*\n\s*{/) {/g;
     }
+    my $lineNum = 0;
     LINE: for my $line ( split /\n/, $fileContent ) {
-        d "$.";
+        $lineNum++;
+        d '$lineNum';
         chomp($line);
         my $originalLine = $line;
-        $shebang = $line if $. == 1 and $line =~ /^#!/;
+        $shebang = $line if $lineNum == 1 and $line =~ /^#!/;
         next if $line =~ /^\s*(#.*)?$/;    # skip empty lines and whole-line comments
         d '$line';
 
@@ -758,12 +761,12 @@ if ( $output =~ /\.dot$/ ) {
     # do nothing
 } else {
     my ($image, $cmd);
-    if ( $output =~ /\.png$/ ) {
-        ($image = $dot ) =~ s/\.dot$/.png/;
-        $cmd = "dot -Tpng $dot -o $image";
-    } else {
+    if ( $output =~ /\.svg$/ ) {
         ($image = $dot ) =~ s/\.dot$/.svg/;
         $cmd = "dot -Tsvg $dot -o $image";
+    } else {
+        ($image = $dot ) =~ s/\.dot$/.png/;
+        $cmd = "dot -Tpng $dot -o $image";
     }
     d '$cmd';
     if ( defined whichCommand('dot') ) {
@@ -785,7 +788,7 @@ if ( $output =~ /\.dot$/ ) {
             }
         }
     } else {
-        say "ERROR:  Cannot run this command to convert .dot to .svg or .png, because executable 'dot' not found:\n          $cmd";
+        say "ERROR:  Cannot run this command to convert .dot to .png or .svg, because executable 'dot' not found:\n          $cmd";
         say "        Run this to proceed:";
         say "            sudo apt-get install graphviz";
         exit 1;
@@ -961,7 +964,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v10 Mon Apr 19 11:25:40 PDT 2021
+v11 Mon Apr 19 12:37:11 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
