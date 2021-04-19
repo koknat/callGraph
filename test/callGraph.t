@@ -65,36 +65,42 @@ if ($@) {
 }
 
 say $separator;
-if ( runtests('tcl|basic') ) {
-    runBasic("$testDir/example.tcl", "-noShow", "$regressionDir/example.tcl.dot");  # .dot creation instead of .png
-    runCmpFiles("$testDir/example.tcl", "-noShow -v", "$regressionDir/example.tcl.png");
+if ( runtests('tcl|simple') ) {
+    runDot("$testDir/example.tcl", "-noShow", "$regressionDir/example.tcl.dot");  # .dot creation instead of .svg
+    runCmpFiles("$testDir/example.tcl", "-n -r -v", "$regressionDir/example.tcl.svg");
     say $separator;
 }
-if ( runtests('pl|basic') ) {
-    runBasic("$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot");  # .dot creation instead of .png
-    runCmpFiles("$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow -v -fullpath -ignore say", "$regressionDir/example.pl.png");
+if ( runtests('pl|simple') ) {
+    runDot("$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot");  # .dot creation instead of .svg
+    runCmpFiles("$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.svg");
 }
-if ( runtests('py|basic') ) {
+if ( runtests('py|simple') ) {
     say $separator;
-    runCmpFiles("$testDir/example.py", "-noShow -v", "$regressionDir/example.py.png");
+    runCmpFiles("$testDir/example.py", "-n -r -v", "$regressionDir/example.py.svg");
 }
 if ( runtests('other') ) {
     say $separator;
-    runCmpFiles("$testDir/example.js", "-noShow -v", "$regressionDir/example.js.png");
+    runCmpFiles("$testDir/example.js", "-n -r -v", "$regressionDir/example.js.svg");
     say $separator;
-    runCmpFiles("$testDir/example.rb", "-noShow -v", "$regressionDir/example.rb.png");
+    runCmpFiles("$testDir/example.rb", "-n -r -v", "$regressionDir/example.rb.svg");
     say $separator;
-    runCmpFiles("$testDir/example.php", "-noShow -v", "$regressionDir/example.php.png");
+    runCmpFiles("$testDir/example.php", "-n -r -v", "$regressionDir/example.php.svg");
     say $separator;
-    runCmpFiles("$testDir/example.awk", "-noShow -v", "$regressionDir/example.awk.png");
+    runCmpFiles("$testDir/example.awk", "-n -r -v", "$regressionDir/example.awk.svg");
     say $separator;
-    runCmpFiles("$testDir/example.go", "-noShow -v", "$regressionDir/example.go.png");
+    runCmpFiles("$testDir/example.go", "-n -r -v", "$regressionDir/example.go.svg");
     say $separator;
-    runCmpFiles("$testDir/example.swift", "-noShow -v", "$regressionDir/example.swift.png");
+    runCmpFiles("$testDir/example.swift", "-n -r -v", "$regressionDir/example.swift.svg");
     say $separator;
-    runCmpFiles("$testDir/example.java", "-noShow -v", "$regressionDir/example.java.png");
+    runCmpFiles("$testDir/example.java", "-n -r -v", "$regressionDir/example.java.svg");
     say $separator;
-    runCmpFiles("$testDir/example.cpp", "-noShow -v", "$regressionDir/example.cpp.png");
+    runCmpFiles("$testDir/example.cpp", "-n -r -v", "$regressionDir/example.cpp.svg");
+    say $separator;
+    runCmpFiles("$testDir/example.m", "-n -r -v", "$regressionDir/example.m.svg");
+    say $separator;
+    runCmpFiles("$testDir/example.r", "-n -r -v", "$regressionDir/example.r.svg");
+    say $separator;
+    runCmpFiles("$testDir/example.bas", "-n -r -v", "$regressionDir/example.bas.svg");
     if ( $whoami ne 'ckoknat' ) {
         say `$executable $testDir/example.py`;
     }
@@ -102,7 +108,7 @@ if ( runtests('other') ) {
 
 # Basic tests:
 #     Ensure the .dot is created and filesize > N
-sub runBasic {
+sub runDot {
     my ($sourceFiles, $options, $output) = @_;
     d '$sourceFiles $options $output';
     my ($cmd, $result, $expected);
@@ -114,7 +120,7 @@ sub runBasic {
     d '$cmd';
     if ( ! defined $output ) {
         ($output = $sourceFiles) =~ s/^(\S+).*/$1/;  # Use the first filename
-        $output = basename($output) . '.png';
+        $output = basename($output) . '.svg';
     }
     `rm $output` if -f $output;
     chomp($result = `$cmd`);
@@ -125,7 +131,7 @@ sub runBasic {
     if ( $output =~ /\.dot$/ ) {
         $minFileSize = 500;
     } else {
-        $minFileSize = 5000;
+        $minFileSize = 4000;
     }
     my $fileSize = -s $output;
     is($fileSize > $minFileSize, 1, "Size of $output ($fileSize) is > $minFileSize");
@@ -157,13 +163,13 @@ sub runCmpFiles {
     $stdout = $regressionDir . '/' . $stdout;
     my $dot;
     if ( defined $output ) {
-        ($dot = $output) =~ s/\.png$/.dot/;
+        ($dot = $output) =~ s/\.svg$/.dot/;
     } else {
         ($dot = $sourceFiles) =~ s/^(\S+).*/$1/;  # Use the first filename
         $dot = $regressionDir . '/' . basename($dot) . '.dot';
     }
     d '$dot $stdout';
-    runBasic($sourceFiles, "$options > $stdout", $output);
+    runDot($sourceFiles, "$options > $stdout", $output);
     ls "$dot $stdout";
     # Compare dot to goldens
     if ( $whoami eq 'ckoknat' ) {
@@ -352,7 +358,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v8 Fri Apr 16 10:17:24 PDT 2021
+v10 Mon Apr 19 11:25:40 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify

@@ -4,7 +4,9 @@ class example {
         bar(arg1);
     }
     public static void bar( String[] myList ) {
-        bar(myList);
+        if (0) {
+            bar(myList);
+        }
         System.out.printf("hello");
         baz();
     }

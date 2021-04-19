@@ -2,11 +2,13 @@
 using namespace std;
 
 void baz() {
-    cout << "World";
+    cout << "World\n";
 }
 void bar( string myList ) {
-    bar(myList);
-    cout << "Hello";
+    if (0) {
+        bar(myList);
+    }
+    cout << "Hello\n";
     baz();
 }
 void foo() {
