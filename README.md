@@ -1,5 +1,5 @@
 ## A multi-language tool to parse source code for function definitions and calls
-callGraph generates a .png call graph and displays it<br>
+callGraph generates a call graph image and displays it<br>
 The parser was designed for Python / Perl / TCL, and has been extended for other languages
 !["Sample output of Python"](test/regression/example.py.golden.png)
 
@@ -35,13 +35,13 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
                                    If neither of those give clues, use this option to specify 'pl' or 'tcl' or 'py'.
 
         -output <filename>         Specify an output filename
-                                   By default, the .png file is named according to the first filename.
+                                   By default, the .svg file is named according to the first filename.
                                    If a filename ending in .dot is given, only the intermediate .dot file is created.
 
         -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
                                    This can be useful when trying to comprehend a large set of legacy code.
 
-        -noShow                    By default, the png file is displayed.  This option prevents that behavior.
+        -noShow                    By default, the svg file is displayed.  This option prevents that behavior.
 
         -fullPath                  By default, the script strips off the path name of the input file(s).
                                    This option prevents that behavior.
@@ -67,7 +67,7 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
         Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
             and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
         It should also work on many other languages, such as:
-            awk, fortran, go, lua, java, javascript, pascal, php, r, raku, ruby, and swift,
+            awk, basic, fortran, go, lua, java, javascript, pascal, php, r, raku, ruby, and swift,
             but those have not been well tested.
         
     Acknowlegements:
