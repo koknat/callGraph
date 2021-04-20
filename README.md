@@ -1,12 +1,20 @@
 ## A multi-language tool to parse source code for function definitions and calls
-callGraph generates a call graph image and displays it<br>
-The parser was designed for Python / Perl / TCL, and has been extended for other languages
+callGraph generates a call graph image and displays it on screen<br>
+The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as:<br>
+    awk, basic, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust, shell, and swift.<br>
+C/C++/Java are not supported, since their complicated syntax requires a real parser.<br>
 !["Sample output of Python"](test/regression/example.py.golden.svg)
+
+    'callGraph' by Chris Koknat
 
     Usage:
         callGraph  <files>  <options>
         
     Options:
+        -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc
+                                   If those are not found, the first line of the script (#! shebang) is inspected.
+                                   If neither of those give clues, use this option to specify 'pl' or 'tcl' or 'py'.
+
         -start <function>          Specify function(s) as starting point instead of the main code.
                                    These are displayed in green.
                                    This is useful when parsing a large script, as the generated graph can be huge.
@@ -18,6 +26,19 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
                                    To ignore multiple functions, use this regex format:
                                        -ignore '(abc|xyz)'
 
+        -output <filename>         Specify an output filename
+                                   By default, the .png file is named according to the first filename.
+                                   If a filename ending in .dot is given, only the intermediate .dot file is created.
+                                   If a filename ending in .svg is given, svg format is used
+
+        -noShow                    By default, the .png file is displayed.  This option prevents that behavior.
+
+        -fullPath                  By default, the script strips off the path name of the input file(s).
+                                   This option prevents that behavior.
+
+        -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
+                                   This can be useful when trying to comprehend a large set of legacy code.
+
         -verbose                   For Perl/TCL, attempts to list the global variables used in each function call in the graph.
                                    Global variables are arguably not the best design paradigm,
                                      but they are found extensively in real-world legacy scripts.
@@ -28,23 +49,7 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
 
                                    TCL:
                                        variables declared as 'global' but not used, are marked with a '*'
-                                       'upvar' is not tracked.
 
-        -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc
-                                   If those are not found, the first line of the script (#! shebang) is inspected.
-                                   If neither of those give clues, use this option to specify 'pl' or 'tcl' or 'py'.
-
-        -output <filename>         Specify an output filename
-                                   By default, the .png file is named according to the first filename.
-                                   If a filename ending in .dot is given, only the intermediate .dot file is created.
-
-        -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
-                                   This can be useful when trying to comprehend a large set of legacy code.
-
-        -noShow                    By default, the png file is displayed.  This option prevents that behavior.
-
-        -fullPath                  By default, the script strips off the path name of the input file(s).
-                                   This option prevents that behavior.
 
     Usage examples:
         callGraph  example.pl example_helper_lib.pm
@@ -52,23 +57,32 @@ The parser was designed for Python / Perl / TCL, and has been extended for other
         callGraph  example.tcl
         callGraph  example.tcl -verbose
 
-    Caveats:
-        This is not a true Perl or Python or TCL parser.  Far from it!
-        It uses a simple line-by-line algorithm, using regexes to find function calls.
-        As such, the formatting must be regular, and don't expect miracles, such as parsing dynamic function calls.
-        For example:
-            Perl subroutines must start with /sub <name>/ and end with /}/
-            Python functions must start with /def <name>:/
-            TCL procedures must start with /proc <name>/ and end with /}/
-            Spaces may exist at the beginning of these lines, but they must be equal in number.
-            If your Perl script does not follow this rule, consider running it through perltidy first.
-       
-    Notes:
+    Algorithm:
+        callGraph uses a simple line-by-line algorithm, using regexes to find function definitions and calls.
+        Function definitions can be detected easily, since they start with identifiers such as:
+            'sub', 'def', 'proc', 'function', 'func', 'fun', or 'fn'
+        Function definitions end with '}' or 'end' at the same nesting level as the definition.
+        Function calls are a bit more tricky, since built-in function calls look exactly like user function calls.
+            To solve this, the algorithm first assumes that anything matching 'word()' is a function call,
+            and then discards any calls which do not have corresponding definitions.
+        For example, Perl:
+            sub funcA {
+                ...
+                if ($x) {
+                    print($y);
+                    funcB($y);
+                }
+                ...
+            }
+            sub funcB {
+                ...
+            }
+        Since this is not a true parser, the formatting must be consistent so that nesting can be determined.
+        If your Perl script does not follow this rule, consider running it through 'perltidy' first.
+        Also, don't expect miracles such as parsing dynamic function calls.
         Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
             and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
-        It should also work on many other languages, such as:
-            awk, basic, fortran, go, lua, java, javascript, pascal, php, r, raku, ruby, and swift,
-            but those have not been well tested.
+
         
     Acknowlegements:
         This code utilizes core functionality from https://github.com/cobber/perl_call_graph
