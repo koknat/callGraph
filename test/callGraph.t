@@ -5,10 +5,13 @@ use strict;
 use File::Basename qw(basename dirname);
 use File::Temp qw(tempdir);
 use Getopt::Long;
-use Test::More qw( no_plan );  # 5.8.1 or newer
-$SIG{__WARN__} = sub { die @_ };  # die instead of produce warnings
-sub say { print @_, "\n" };
-sub D{say "Debug::Statements has been disabled"}; sub d{}; sub d2{}; sub ls{};
+use Test::More qw( no_plan );    # 5.8.1 or newer
+$SIG{__WARN__} = sub { die @_ }; # die instead of produce warnings
+sub say { print @_, "\n" }
+sub D   { say "Debug::Statements has been disabled" }
+sub d   { }
+sub d2  { }
+sub ls  { }
 #use lib "/home/ate/scripts/regression";
 #use Debug::Statements;
 
@@ -24,16 +27,16 @@ die "ERROR:  Did not expect '@ARGV'.  Did you forget '-t' ? " if @ARGV;
 
 chomp( my $pwd = `pwd` );
 my $script = 'callGraph';
-my $executable;  # callGraph executable
-my $testDir;  # callGraph/test directory
-my $regressionDir;  # callGraph/test/regression directory
+my $executable;       # callGraph executable
+my $testDir;          # callGraph/test directory
+my $regressionDir;    # callGraph/test/regression directory
 if ( $pwd =~ m{/$script(-master.*)?/test$} ) {
-    $executable = dirname($pwd) . "/$script";
-    $testDir = "$pwd";
+    $executable    = dirname($pwd) . "/$script";
+    $testDir       = "$pwd";
     $regressionDir = "$pwd/regression";
 } elsif ( $pwd =~ m{/$script(-master)?$} ) {
-    $executable = "$pwd/$script";
-    $testDir = "$pwd/test";
+    $executable    = "$pwd/$script";
+    $testDir       = "$pwd/test";
     $regressionDir = "$pwd/test/regression";
 } else {
     die "ERROR:  This must be run from the $script/test directory!\n";
@@ -45,11 +48,11 @@ if ( $whoami eq 'ckoknat' ) {
 }
 #say "\$pwd = $pwd";
 #say "\$executable = $executable";
-#say "\$testDir = $testDir"; 
+#say "\$testDir = $testDir";
 
 my $pass = 0;
 my $fail = 256;
-my $err = 512;
+my $err  = 512;
 print "\n\n\n\n";
 my $globaltmpdir = tempdir( "/tmp/${script}_XXXX", CLEANUP => 0 );
 chdir($testDir);
@@ -66,68 +69,80 @@ if ($@) {
 
 my $format = 'png';
 say $separator;
-if ( runtests('tcl|simple') ) {
-    runDot("$testDir/example.tcl", "-noShow", "$regressionDir/example.tcl.dot");  # .dot creation instead of .png
-    runCmpFiles("$testDir/example.tcl", "-n -r -v", "$regressionDir/example.tcl.$format");
-    say $separator;
-}
-if ( runtests('pl|simple') ) {
-    runDot("$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot");  # .dot creation instead of .png
-    runCmpFiles("$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.$format");
-}
-if ( runtests('py|simple') ) {
-    say $separator;
-    runCmpFiles("$testDir/example.py", "-n -r -v", "$regressionDir/example.py.$format");
+if ( runtests('pl') ) {
+    runDot( "$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot" );    # .dot creation instead of .png
+    runCmpFiles( "$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.$format" );
 }
 if ( runtests('other') ) {
-    say $separator;
-    runCmpFiles("$testDir/example.js", "-n -r -v", "$regressionDir/example.js.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.rb", "-n -r -v", "$regressionDir/example.rb.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.php", "-n -r -v", "$regressionDir/example.php.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.awk", "-n -r -v", "$regressionDir/example.awk.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.go", "-n -r -v", "$regressionDir/example.go.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.swift", "-n -r -v", "$regressionDir/example.swift.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.java", "-n -r -v", "$regressionDir/example.java.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.cpp", "-n -r -v", "$regressionDir/example.cpp.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.m", "-n -r -v", "$regressionDir/example.m.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.r", "-n -r -v", "$regressionDir/example.r.$format");
-    say $separator;
-    runCmpFiles("$testDir/example.bas", "-n -r -v", "$regressionDir/example.bas.$format");
-    if ( $whoami ne 'ckoknat' ) {
-        say `$executable $testDir/example.py`;
+    # Missing .for .lua .pas
+    for my $language (qw( awk bas go js kt m php r rb rs py sh swift tcl )) {
+        say $separator;
+        runCmpFiles( "$testDir/example.$language", "-n -r -v", "$regressionDir/example.$language.$format" );
     }
 }
 
-# Basic tests:
-#     Ensure the .dot is created and filesize > N
-sub runDot {
-    my ($sourceFiles, $options, $output) = @_;
+# Print pass/fail summary
+my $num_failed = summary();
+d '$num_failed';
+if ( $whoami eq 'ckoknat' ) {
+    if ( !defined $opt{test} and !$num_failed ) {
+        say "\nIf everything passes do this:";
+        say "    ~/r/$script/test2/${script}2.t\n";
+    }
+}
+
+exit 0;
+
+sub runCmpFiles {
+    my ( $sourceFiles, $options, $output ) = @_;
     d '$sourceFiles $options $output';
-    my ($cmd, $result, $expected);
+    ( my $baseScript = $executable ) =~ s/.* (\S+)$/$1/;
+    $baseScript = basename($executable);
+    my $stdout = "regression__${baseScript}__${sourceFiles}__${options}";
+    $stdout =~ s/[\s'"\(\)\{\}\$\@\%\/\|=]/_/g;
+    $stdout .= '.stdout';
+    $stdout = $regressionDir . '/' . $stdout;
+    my $dot;
+
+    if ( defined $output ) {
+        ( $dot = $output ) =~ s/\.png$/.dot/;
+    } else {
+        ( $dot = $sourceFiles ) =~ s/^(\S+).*/$1/;    # Use the first filename
+        $dot = $regressionDir . '/' . basename($dot) . '.dot';
+    }
+    d '$dot $stdout';
+    runDot( $sourceFiles, "$options > $stdout", $output );
+    ls "$dot $stdout";
+    # Compare dot to goldens
+    if ( $whoami eq 'ckoknat' ) {
+        # Compare stdout to goldens
+        # This is not done because dot files differ somewhat, based on the Perl version
+        testCmpFiles( {}, to_from_golden($dot), $dot, undef, undef, undef, undef );
+        # This is not done for other users, because of path names
+        testCmpFiles( {}, to_from_golden($stdout), $stdout, "!\\d+.*$output", undef, undef, undef );
+    }
+}
+
+# Ensure the .dot is created and filesize > N
+sub runDot {
+    my ( $sourceFiles, $options, $output ) = @_;
+    d '$sourceFiles $options $output';
+    my ( $cmd, $result, $expected );
 
     # Normal run
     $cmd = "$executable $sourceFiles";
     $cmd .= " -output $output" if defined $output;
-    $cmd .= " $options";  # options may contain "> file"
+    $cmd .= " $options";    # options may contain "> file"
     d '$cmd';
-    if ( ! defined $output ) {
-        ($output = $sourceFiles) =~ s/^(\S+).*/$1/;  # Use the first filename
+    if ( !defined $output ) {
+        ( $output = $sourceFiles ) =~ s/^(\S+).*/$1/;    # Use the first filename
         $output = basename($output) . '.png';
     }
     `rm $output` if -f $output;
-    chomp($result = `$cmd`);
+    chomp( $result = `$cmd` );
     d '$result';
     ls $output;
-    is(-f $output, 1, "'$cmd' created file $output");
+    is( -f $output, 1, "'$cmd' created file $output" );
     my $minFileSize;
     if ( $output =~ /\.dot$/ ) {
         $minFileSize = 500;
@@ -135,51 +150,7 @@ sub runDot {
         $minFileSize = 4000;
     }
     my $fileSize = -s $output;
-    is($fileSize > $minFileSize, 1, "Size of $output ($fileSize) is > $minFileSize");
-}
-
-# Print pass/fail summary
-my $num_failed = summary();
-d '$num_failed';
-if ( $whoami eq 'ckoknat' ) {
-    if ( ! defined $opt{test}  and  ! $num_failed ) {
-        say "If everything passes do this:";
-        say "    ~/r/$script/test2/${script}2.t\n";
-    }
-}
-
-exit 0;
-
-
-
-
-sub runCmpFiles {
-    my ($sourceFiles, $options, $output) = @_;
-    d '$sourceFiles $options $output';
-    (my $baseScript = $executable) =~ s/.* (\S+)$/$1/;
-    $baseScript = basename($executable);
-    my $stdout = "regression__${baseScript}__${sourceFiles}__${options}";
-    $stdout =~ s/[\s'"\(\)\{\}\$\@\%\/\|=]/_/g;
-    $stdout .= '.stdout';
-    $stdout = $regressionDir . '/' . $stdout;
-    my $dot;
-    if ( defined $output ) {
-        ($dot = $output) =~ s/\.png$/.dot/;
-    } else {
-        ($dot = $sourceFiles) =~ s/^(\S+).*/$1/;  # Use the first filename
-        $dot = $regressionDir . '/' . basename($dot) . '.dot';
-    }
-    d '$dot $stdout';
-    runDot($sourceFiles, "$options > $stdout", $output);
-    ls "$dot $stdout";
-    # Compare dot to goldens
-    if ( $whoami eq 'ckoknat' ) {
-        # Compare stdout to goldens
-        # This is not done because dot files differ somewhat, based on the Perl version
-        testCmpFiles({}, to_from_golden($dot), $dot, undef, undef, undef, undef);
-        # This is not done for other users, because of path names
-        testCmpFiles({}, to_from_golden($stdout), $stdout, "!\\d+.*$output", undef, undef, undef);
-    }
+    is( $fileSize > $minFileSize, 1, "Size of $output ($fileSize) is > $minFileSize" );
 }
 
 # Controls running of test suites (a test suite is a set of tests)
@@ -199,13 +170,13 @@ sub runtests {
     #
     # If the regex is followed by '+', then run that test and all tests following it
     #
-    my $d = 0; # 1 = debug statements for runtests()
-    my $local_t = $t; # for debug statement
+    my $d       = 0;     # 1 = debug statements for runtests()
+    my $local_t = $t;    # for debug statement
     if ( $t =~ /^($testgroup|ALL)?(\+)*$/ ) {
-        my ($t_regex, $plus) = ($1,$2,$3);
+        my ( $t_regex, $plus ) = ( $1, $2, $3 );
         d '$testgroup $local_t $t_regex $plus';
         print "\n*** $testgroup ***\n";
-        if ( $plus ) {
+        if ($plus) {
             $t = 'ALL';
         }
         return 1;
@@ -213,22 +184,24 @@ sub runtests {
         return 0;
     }
 }
+
 sub summary {
     # Print message if any test failed
     my ($href) = @_;
-    my ($passed, $failed) = (0,0);
+    my ( $passed, $failed ) = ( 0, 0 );
     my @tests = Test::More->builder->details;
     my @failed;
     my $i = 0;
     for my $test (@tests) {
         $i++;
-        if ($test->{ok}) {$passed++} else {$failed++; push @failed, $i};
+        if   ( $test->{ok} ) { $passed++ }
+        else                 { $failed++; push @failed, $i }
     }
     my $message;
-    if ( $passed == 0  &&  $failed == 0 ) {
+    if ( $passed == 0 && $failed == 0 ) {
         $message = "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! no tests run !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-    } elsif ( $failed ) {
-        $message = "\n################################ tests " . (join " ", @failed) . " FAILED ################################\n";
+    } elsif ($failed) {
+        $message = "\n################################ tests " . ( join " ", @failed ) . " FAILED ################################\n";
     } else {
         $message = "\n################################ all tests passed ################################\n";
     }
@@ -238,11 +211,11 @@ sub summary {
 }
 
 sub to_from_golden {
-    my ($file, $extension) = @_;
-    $extension = 'golden' if ! defined $extension;
-    my ($goldfile, $position);
+    my ( $file, $extension ) = @_;
+    $extension = 'golden' if !defined $extension;
+    my ( $goldfile, $position );
     my $dirname = dirname($file);
-    my $bfile = basename($file);
+    my $bfile   = basename($file);
     if ( $bfile =~ /^(.*)\.$extension(.*)$/ ) {
         # a.golden     => a
         # a.golden.csv => a.csv
@@ -282,47 +255,49 @@ sub to_from_golden {
 # By default, the output should have nonzero size after grepping with the regex
 # testfile($file1, $file2, $regex, $sort, $emptyOK);
 sub testCmpFiles {
-    my ($self, $file1, $file2, $regex, $sort, $emptyOK, $substitute) = @_;
+    my ( $self, $file1, $file2, $regex, $sort, $emptyOK, $substitute ) = @_;
     my $d = $self->{debug};
-    $sort = 0 if ! defined $sort;
-    $emptyOK = 0 if ! defined $emptyOK;
+    $sort    = 0 if !defined $sort;
+    $emptyOK = 0 if !defined $emptyOK;
     d('$file1 $file2 $regex $sort');
     ls "$file1 $file2";
     ok( -e $file1, "File 1 $file1 found" );
-    return if ! -e $file1;
+    return if !-e $file1;
     ok( -e $file2, "File 2 $file2 found" );
-    return if ! -e $file2;
+    return if !-e $file2;
     my $negate;
-    $regex = '' if ! defined $regex;
-    if ( $regex ne ''  and  ! ref($regex)  and  index($regex, '!') == 0 ) {
+    $regex = '' if !defined $regex;
+
+    if ( $regex ne '' and !ref($regex) and index( $regex, '!' ) == 0 ) {
         $negate = 1;
-        $regex = substr($regex, 1,);
+        $regex = substr( $regex, 1, );
         d('$regex');
     }
     d('$negate');
     my $description = "is_deeply diff $file1 $file2";
     $description .= " sorted" if $sort;
-    $description .= " !" if $negate;
-    $regex = [$regex] if ! ref($regex);
-    for my $reg ( @$regex ) {
+    $description .= " !"      if $negate;
+    $regex = [$regex] if !ref($regex);
+    for my $reg (@$regex) {
         d('$reg');
         $description .= " $reg";
         #my @lines1 = io($file1)->chomp->slurp;
         #my @lines2 = io($file2)->chomp->slurp;
         open my $fh1, '<', $file1;
-        chomp(my @lines1 = <$fh1>);
+        chomp( my @lines1 = <$fh1> );
         close $fh1;
         open my $fh2, '<', $file2;
-        chomp(my @lines2 = <$fh2>);
+        chomp( my @lines2 = <$fh2> );
         close $fh2;
         d('@lines1 @lines2');
-        if ( $sort ) {
+
+        if ($sort) {
             d('Sorting');
             @lines1 = sort @lines1;
             @lines2 = sort @lines2;
             d('@lines1 @lines2');
         }
-        if ( $substitute ) {
+        if ($substitute) {
             d('Substituting');
             if ( $substitute =~ /(.+)\^\^(.*)/ ) {
                 my ( $search, $replace ) = ( $1, $2 );
@@ -334,23 +309,23 @@ sub testCmpFiles {
             }
             d('@lines1 @lines2');
         }
-        if ( $negate ) {
+        if ($negate) {
             d("Grepping for ! $reg");
-            @lines1 = grep { ! m/$reg/ } @lines1;
-            @lines2 = grep { ! m/$reg/ } @lines2;
+            @lines1 = grep { !m/$reg/ } @lines1;
+            @lines2 = grep { !m/$reg/ } @lines2;
         } else {
             d("Grepping for $reg");
             @lines1 = grep { m/$reg/ } @lines1;
             @lines2 = grep { m/$reg/ } @lines2;
         }
         d('@lines1 @lines2');
-        if ( ! $emptyOK and $reg ne '' ) {
+        if ( !$emptyOK and $reg ne '' ) {
             my @empty = ();
             d('@empty');
-            die if ! isnt(\@lines1, [], "$file1 cannot be empty after grepping for $reg") and $self->{die};
-            die if ! isnt(\@lines2, [], "$file2 cannot be empty after grepping for $reg") and $self->{die};
+            die if !isnt( \@lines1, [], "$file1 cannot be empty after grepping for $reg" ) and $self->{die};
+            die if !isnt( \@lines2, [], "$file2 cannot be empty after grepping for $reg" ) and $self->{die};
         }
-        die if ! is_deeply(\@lines1, \@lines2, $description) and $self->{die};
+        die if !is_deeply( \@lines1, \@lines2, $description ) and $self->{die};
     }
 }
 
@@ -359,7 +334,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v11 Mon Apr 19 12:37:11 PDT 2021
+v13 Tue Apr 20 11:42:21 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
