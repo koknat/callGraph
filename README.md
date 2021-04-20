@@ -1,6 +1,6 @@
 ## A multi-language tool to parse source code for function definitions and calls
 callGraph generates a call graph image and displays it on screen<br>
-The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as:<br>
+The parser was designed for perl/python/tcl, and has been extended for other languages, such as:<br>
     awk, basic, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust, shell, and swift.<br>
 C/C++/Java are not supported, since their complicated syntax requires a real parser.<br>
 !["Sample output of Python"](test/regression/example.py.golden.svg)
@@ -82,7 +82,6 @@ C/C++/Java are not supported, since their complicated syntax requires a real par
         Also, don't expect miracles such as parsing dynamic function calls.
         Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
             and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
-
         
     Acknowlegements:
         This code utilizes core functionality from https://github.com/cobber/perl_call_graph
