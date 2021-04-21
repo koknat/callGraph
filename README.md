@@ -1,5 +1,5 @@
 ## A multi-language tool to parse source code for function definitions and calls
-callGraph generates a call graph image and displays it on screen<br>
+callGraph statically generates a call graph image and displays it on screen<br>
 The parser was designed for perl/python/tcl, and has been extended for other languages, such as:<br>
     awk, bash, basic, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust, and swift.<br>
 C/C++/Java are not supported, since their complicated syntax requires a real parser.<br>
