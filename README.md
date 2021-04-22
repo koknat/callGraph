@@ -9,6 +9,10 @@ C/C++/Java are not supported, since their complicated syntax requires a real par
     Usage:
         callGraph  <files>  <options>
         
+        If your script calls helper modules, and you want the call graph to display the modules' functions,
+            list them explicitly on the command line:
+        callGraph script.pl path/moduleA.pm path/moduleB.pm
+
     Options:
         -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc
                                    If those are not found, the first line of the script (#! shebang) is inspected.
