@@ -26,6 +26,10 @@ Purpose:
 
 Usage:
     $scriptName  <files>  <options>
+
+    If your script calls helper modules, and you want the call graph to display the modules' functions,
+        list them explicitly on the command line:
+    $scriptName script.pl path/moduleA.pm path/moduleB.pm
     
 Options:
     -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc
@@ -841,12 +845,12 @@ if ( $output =~ /\.dot$/ ) {
         ls $image;
         #say `ls -l $image`;  # commented because of regressions
         unless ( $opt{noShow} ) {
-            my $displayExecutable = whichCommand( 'fim', 'feh', 'eog', 'xdg-open', 'open', 'konqueror', 'gwenview' );
+            my $displayExecutable = whichCommand( 'eog', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
             if ( defined $displayExecutable ) {
                 $cmd = "$displayExecutable $image";
                 d '$cmd';
                 say "Displaying $image";
-                say `$cmd &`;
+                say `$cmd 2>/dev/null &`;
             } else {
                 say "WARNING:  Could not find a command to display $image";
                 exit 0;
@@ -1029,7 +1033,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v14 Thu Apr 22 10:51:25 PDT 2021
+v15 Thu Apr 22 12:41:08 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
