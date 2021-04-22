@@ -18,10 +18,10 @@ sub usage {
 '$scriptName' by Chris Koknat  https://github.com/koknat/callGraph
 
 Purpose:
-    $scriptName is a multi-language tool to parse source code for function definitions and calls.
+    $scriptName is a multi-language tool to statically parse source code for function definitions and calls.
     It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as
-    awk, basic, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust, shell, and swift.
+    awk, bash, basic, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust, and swift.
     C/C++/Java are not supported, since their complicated syntax requires a real parser.
 
 Usage:
@@ -56,16 +56,20 @@ Options:
     -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
                                This can be useful when trying to comprehend a large set of legacy code.
 
-    -verbose                   For Perl/TCL, attempts to list the global variables used in each function call in the graph.
-                               Global variables are arguably not the best design paradigm,
-                                 but they are found extensively in real-world legacy scripts.
+    -verbose                   Provides 2 additional functionalities:
+                               
+                               1) Displays the external scripts referenced within each function
 
-                               Perl:
-                                   'my' variables will affect this determination (use strict).
-                                   does not distinguish between \$var, \@var and \%var.
+                               2) For Perl/TCL, attempts to list the global variables used in each function call in the graph.
+                                  Global variables are arguably not the best design paradigm,
+                                    but they are found extensively in real-world legacy scripts.
 
-                               TCL:
-                                   variables declared as 'global' but not used, are marked with a '*'
+                                  Perl:
+                                      'my' variables will affect this determination (use strict).
+                                      Does not distinguish between \$var, \@var and \%var.
+
+                                  TCL:
+                                      Variables declared as 'global' but not used, are marked with a '*'
 
 
 Usage examples:
@@ -123,6 +127,14 @@ Requirements:
 #     option -writeSubsetCode <file> to create an output source file containing only the procs used in the graph
 # Additional caveats:
 #     it is assumed that function names are unique across files
+# Notes:
+#     For C/C++/Java, consider using the dynamic profiler valgrind/kcachegrind
+#     For Perl, if you need something more sophisticated, you can run the dynamic profiler NYTProf:
+#         <path_to_perl>/bin/perl -d:NYTProf <script>
+#         <path_to_perl>/bin/nytprofcg
+#         kcachegrind nytprof.callgrind
+#     Python and PHP can also use a similar toolchain
+#     Dynamic generation will only include paths which are actually run, and may take much longer to run than static generation
 
 my %opt;
 my $d;
@@ -559,6 +571,7 @@ if ( $opt{verbose} ) {
     d 'verbose';
     my %sub_info;
     my $perl_my_var_found;
+    my $externalScriptCallsFound;
     # Add main function to list
     my @file_subs = ( sort keys %{ $graph->{node} } );
     for my $file_sub ( sort @file_subs ) {
@@ -671,6 +684,15 @@ if ( $opt{verbose} ) {
                 }
             }
         }
+        for my $line ( split /\n/, $funcContents->{$sub}{$file} ) {
+            if ( $line =~ /(\w+\.(awk|m|php|pl|py|r|rb|sh|tcl)\b)/ ) {
+                my $script = $1;
+                if ( basename($file) ne $script ) {
+                    $sub_info{$file}{$sub}{scriptsCalled}{$script}++;
+                    $externalScriptCallsFound++;
+                }
+            }
+        }
     }
     d '%sub_info';
     if ( $language =~ /^(tcl)$/ ) {
@@ -716,7 +738,7 @@ if ( $opt{verbose} ) {
                     }
                 } else {
                     if ( defined $sub_info{$file}{$sub}{vars}{$var} and not defined $sub_info{$file}{$var} and ( defined $sub_info{$file}{$main}{vars}{$var} or $var =~ /^(ARGV|ENV|INC|SIG)$/ ) ) {
-                        if ( $language eq 'py' and $var =~ /^(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|gz|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|\d+|__\S+__|all|args|at|basename|by|collections|cwd|date|datetime|dict|each|end|error|exists|f|file|files|find|format|get|getcwd|group|help|i|include|int|key|len|limit|map|match|math|matlib|numpy|object|open|os|path|print|r|random|reduce|rename|replace|size|str|strip|time|using|w|warning)$/ ) {
+                        if ( $language eq 'py' and $var =~ /^(False|None|True|and|as|assert|async|await|break|class|continue|csv|datetime|def|del|elif|else|except|finally|for|from|global|gz|if|import|in|is|lambda|nonlocal|not|np|or|pass|raise|re|return|try|while|with|yield|\d+|__\S+__|all|args|at|basename|by|collections|cwd|date|datetime|dict|each|end|error|exists|f|file|files|find|format|get|getcwd|group|help|i|include|int|key|len|limit|map|match|math|matlib|numpy|object|open|os|path|pd|plt|print|r|random|reduce|rename|replace|size|str|strip|subprocess|sys|time|using|w|warning|yaml)$/ ) {
                             # do nothing, keyword or probably not a global variable name
                         } else {
                             $sub_info{$file}{$sub}{usedGlobalVars}{$var} = 1;
@@ -749,6 +771,22 @@ if ( $opt{verbose} ) {
                 }
             }
         }
+    }
+    # Find external scripts referenced in each function
+    if (  $externalScriptCallsFound ) {
+        say "\nExternal scripts referenced in each function:";
+        for my $file ( sort keys %sub_info ) {
+            say "    " . basename($file);
+            for my $sub ( sort keys %{ $sub_info{$file} } ) {
+                if ( $sub_info{$file}{$sub}{scriptsCalled} ) {
+                    say "        $sub";
+                    for my $script ( sort {$a cmp $b} keys %{ $sub_info{$file}{$sub}{scriptsCalled} } ) {
+                        say "            $script";
+                    }
+                }
+            }
+        }
+        say "";
     }
 } else {
     if ( $language =~ /^(pl|tcl)$/ ) {
@@ -991,7 +1029,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v13 Tue Apr 20 11:42:21 PDT 2021
+v14 Thu Apr 22 10:51:25 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
