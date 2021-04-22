@@ -38,16 +38,20 @@ C/C++/Java are not supported, since their complicated syntax requires a real par
         -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
                                    This can be useful when trying to comprehend a large set of legacy code.
 
-        -verbose                   For Perl/TCL, attempts to list the global variables used in each function call in the graph.
-                                   Global variables are arguably not the best design paradigm,
-                                     but they are found extensively in real-world legacy scripts.
+        -verbose                   Provides 2 additional functionalities:
+                               
+                                   1) Displays the external scripts referenced within each function
 
-                                   Perl:
-                                       'my' variables will affect this determination (use strict).
-                                       does not distinguish between $var, @var and %var.
+                                   2) For Perl/TCL, attempts to list the global variables used in each function call in the graph.
+                                      Global variables are arguably not the best design paradigm,
+                                        but they are found extensively in real-world legacy scripts.
 
-                                   TCL:
-                                       variables declared as 'global' but not used, are marked with a '*'
+                                      Perl:
+                                          'my' variables will affect this determination (use strict).
+                                          does not distinguish between $var, @var and %var.
+
+                                      TCL:
+                                          variables declared as 'global' but not used, are marked with a '*'
 
 
     Usage examples:
