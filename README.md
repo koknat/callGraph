@@ -10,7 +10,7 @@ C/C++/Java are not supported, since their complicated syntax requires a real par
         callGraph  <files>  <options>
         
         If your script calls helper modules, and you want the call graph to display the modules' functions,
-            list them explicitly on the command line:
+            list the modules explicitly on the command line:
         callGraph script.pl path/moduleA.pm path/moduleB.pm
 
     Options:
