@@ -2,7 +2,7 @@
 callGraph statically generates a call graph image and displays it on screen<br>
 Supported languages are: awk, bash, basic, fortran, go, lua, javascript, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, swift, and tcl.<br>
 C/C++/Java are not supported, since their complicated syntax requires a real parser.<br>
-!["Sample output of Python"](test/regression/example.py.golden.svg)
+!["Sample output"](callGraph.png)
 
     'callGraph' by Chris Koknat
 
