@@ -22,7 +22,8 @@ C/C++/Java are not supported, since their complicated syntax requires a real par
                                    These are displayed in green.
                                    This is useful when parsing a large script, as the generated graph can be huge.
                                    In addition, the calls leading to this function are charted.
-                                   Functions which are not reachable from one of the starting points are not charted.
+                                   Functions which are not reachable from one of the starting points
+                                     are not charted.
 
         -ignore <regex>            Specify function(s) to ignore.
                                    This is useful when pruning the output of a large graph.
@@ -39,14 +40,16 @@ C/C++/Java are not supported, since their complicated syntax requires a real par
         -fullPath                  By default, the script strips off the path name of the input file(s).
                                    This option prevents that behavior.
 
-        -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
+        -writeSubsetCode <file>    Create an output source file which includes only the subroutines
+                                     included in the graph.
                                    This can be useful when trying to comprehend a large set of legacy code.
 
         -verbose                   Provides 2 additional functionalities:
                                
                                    1) Displays the external scripts referenced within each function
 
-                                   2) For Perl/TCL, attempts to list the global variables used in each function call in the graph.
+                                   2) For Perl/TCL, attempts to list the global variables
+                                        used in each function call in the graph.
                                       Global variables are arguably not the best design paradigm,
                                         but they are found extensively in real-world legacy scripts.
 
