@@ -227,7 +227,7 @@ die "\nERROR:  language could not be determined.  Use option -language <language
 # Define the regular expressions which detect function definitions & calls
 my %languageSyntax = (
     # http://rigaux.org/language-study/syntax-across-languages.html
-    # If you want to support another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
+    # To add support for another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
     functionDefinition => {
         awk   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
         bas   => '(\s*)(sub)\s+(\w+)\s*\(.*\)',
@@ -885,6 +885,22 @@ if ( $opt{writeSubsetCode} ) {
 
 #exit 0 if $opt{regression};
 
+# Attempt to convert .dot to .svg or .png, using system resources
+if ( $output =~ /\.dot$/ ) {
+    # do nothing
+} else {
+    if ( ! defined whichCommand('dot') ) {
+        say "\nERROR:  The executable 'dot' cannot be found in your path";
+        if ( -d '/home/ckoknat' ) {
+            say "        Try running on a RedHat/CentOS 5 or 6 machine, such as sc-xterm-60\n";
+        } else {
+            say "        Run this to proceed:";
+            say "            sudo apt-get install graphviz\n";
+        }
+        exit 1;
+    }
+}
+
 # Create the graph
 $graph->generate();
 ls $dot;
@@ -904,30 +920,23 @@ if ( $output =~ /\.dot$/ ) {
         $cmd = "dot -Tpng $dot -o $image";
     }
     d '$cmd';
-    if ( defined whichCommand('dot') ) {
-        say "Converting to $image";
-        my $result = `$cmd`;
-        say $result if $result =~ /\S/;
-        ls $image;
-        #say `ls -l $image`;  # commented because of regressions
-        unless ( $opt{noShow} ) {
-            # eog is nice because it has zoom in/out
-            my $displayExecutable = whichCommand( 'eog', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
-            if ( defined $displayExecutable ) {
-                $cmd = "$displayExecutable $image";
-                d '$cmd';
-                say "Displaying $image using '$displayExecutable'";
-                say `$cmd 2>/dev/null &`;
-            } else {
-                say "WARNING:  Could not find a command to display $image";
-                exit 0;
-            }
+    say "Converting to $image";
+    my $result = `$cmd`;
+    say $result if $result =~ /\S/;
+    ls $image;
+    #say `ls -l $image`;  # commented because of regressions
+    unless ( $opt{noShow} ) {
+        # eog is nice because it has zoom in/out
+        my $displayExecutable = whichCommand( 'eog', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
+        if ( defined $displayExecutable ) {
+            $cmd = "$displayExecutable $image";
+            d '$cmd';
+            say "Displaying $image using '$displayExecutable'";
+            say `$cmd 2>/dev/null &`;
+        } else {
+            say "WARNING:  Could not find a command to display $image";
+            exit 0;
         }
-    } else {
-        say "ERROR:  Cannot run this command to convert .dot to .png or .svg, because executable 'dot' not found:\n          $cmd";
-        say "        Run this to proceed:";
-        say "            sudo apt-get install graphviz";
-        exit 1;
     }
 }
 exit 0;
@@ -1104,7 +1113,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v18 Tue Apr 27 10:51:07 PDT 2021
+v19 Tue Apr 27 12:19:42 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
