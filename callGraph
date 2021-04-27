@@ -28,19 +28,20 @@ Usage:
     $scriptName  <files>  <options>
 
     If your script calls helper modules, and you want the call graph to display the modules' functions,
-        list them explicitly on the command line:
+        list the modules explicitly on the command line:
     $scriptName script.pl path/moduleA.pm path/moduleB.pm
     
 Options:
-    -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc
+    -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc.
                                If those are not found, the first line of the script (#! shebang) is inspected.
-                               If neither of those give clues, use this option to specify 'pl' or 'tcl' or 'py'.
+                               If neither of those give clues, use this option to specify pl, tcl, py, etc
 
     -start <function>          Specify function(s) as starting point instead of the main code.
                                These are displayed in green.
                                This is useful when parsing a large script, as the generated graph can be huge.
                                In addition, the calls leading to this function are charted.
-                               Functions which are not reachable from one of the starting points are not charted.
+                               Functions whichare not reachable from one of the starting points
+                                 are not charted.
 
     -ignore <regex>            Specify function(s) to ignore.
                                This is useful when pruning the output of a large graph.
@@ -49,7 +50,8 @@ Options:
 
     -output <filename>         Specify an output filename
                                By default, the .png file is named according to the first filename.
-                               If a filename ending in .dot is given, only the intermediate .dot file is created.
+                               If a filename ending in .dot is given,
+                                 only the intermediate .dot file is created.
                                If a filename ending in .svg is given, svg format is used
 
     -noShow                    By default, the .png file is displayed.  This option prevents that behavior.
@@ -57,14 +59,16 @@ Options:
     -fullPath                  By default, the script strips off the path name of the input file(s).
                                This option prevents that behavior.
 
-    -writeSubsetCode <file>    Create an output source file which includes only the subroutines included in the graph.
+    -writeSubsetCode <file>    Create an output source file which includes only the subroutines
+                                 included in the graph.
                                This can be useful when trying to comprehend a large set of legacy code.
 
     -verbose                   Provides 2 additional functionalities:
                                
                                1) Displays the external scripts referenced within each function
 
-                               2) For Perl/TCL, attempts to list the global variables used in each function call in the graph.
+                               2) For Perl/TCL, attempts to list the global variables
+                                    used in each function call in the graph.
                                   Global variables are arguably not the best design paradigm,
                                     but they are found extensively in real-world legacy scripts.
 
@@ -153,7 +157,8 @@ Getopt::Long::GetOptions(
     'verbose',
     'language=s',
     'regression',
-    'noShow|n',
+    'noShow',
+    'obfuscate',
     'writeSubsetCode=s',
     'd' => sub { $d = 1 },
 ) or usage();
@@ -233,7 +238,7 @@ my %languageSyntax = (
         lua   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
         m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
         pas   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        php   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+        php   => '(\s*)(?:private\s+|protected\s+|public\s+)?(function)\s+(\w+)\s*\(.*\)',
         pl    => '(\s*)(sub)\s+(\w+)',
         py    => '(\s*)(def)\s+(\w+)\(.*\):',
         r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
@@ -509,6 +514,57 @@ for my $caller_sub ( keys %{$funcCall} ) {
 }
 d '$call_graph';
 
+if ( $opt{obfuscate} ) {
+    my %cache;
+    $call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => { __MAIN__ => 1 }, jargon => [ qw( aerate amplify approximate assemble benchmark calculate compile compress decode defrag delete download emulate encapsulate encode enhance exaggerate grep hypothesize infer inspect interpolate multiplex mutate obfuscate predict process procrastinate profile prune refactor rewind smite spawn swizzle transform translate)]});
+    #$call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => { __MAIN__ => 1 }, jargon => [ qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instatiate interpolate ionize irraditate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize saute scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell )]});
+    sub renameFunctions {
+        my ($in, $options) = @_;
+        my $new;
+        my $numFunctions = scalar keys %{$in};
+        my $numMapped = scalar @{$options->{jargon}};
+        my $numSkipped = scalar keys %{$options->{ignore}};
+        d '$in $options $numFunctions $numMapped';
+        say "$numFunctions functions (including __MAIN__)";
+        say "$numSkipped skipped function names";
+        say "$numMapped obfuscated names in the jargon list";
+        die "\nERROR:  Obfuscation needs a biggger word list\n" if $numFunctions > ( $numMapped + $numSkipped );
+        for my $from_file_sub ( keys %{ $in } ) {
+            my ( $from_file, $from_sub ) = split( /:/, $from_file_sub );
+            my $from_sub_new = transformVerbs($from_sub, $options);
+            for my $invokes_or_by ( keys %{ $in->{$from_file_sub} } ) {
+                for my $to_file_sub ( keys %{ $in->{$from_file_sub}{$invokes_or_by} } ) {
+                    my ( $to_file, $to_sub ) = split( /:/, $to_file_sub );
+                    my $to_sub_new = transformVerbs($to_sub, $options);
+                    $new->{"$from_file:$from_sub_new"}{$invokes_or_by}{"$to_file:$to_sub_new"} = $in->{"$from_file:$from_sub"}{$invokes_or_by}{"$to_file:$to_sub"};
+                }
+            }
+        }
+        d '$new';
+        return $new;
+    }
+    sub transformVerbs {
+        my ($name, $options) = @_;
+        my $cache = $options->{cache};
+        #d '$options $cache';
+        my $new;
+        if ( defined $cache->{$name} ) {
+            $new = $cache->{$name};
+        } elsif ( $options->{ignore}{$name} ) {
+            $new = $name;
+            $cache->{$name} = $new;
+        } else {
+            my $i = rand(@{$options->{jargon}});
+            $new = $options->{jargon}[$i];
+            $options->{jargon}[$i] = undef;  # Ensure that same name is not mapped twice
+            @{$options->{jargon}} = grep { defined($_) } @{$options->{jargon}};
+            $cache->{$name} = $new;
+        }
+        #d '$new';
+        return $new;
+    }
+}
+
 # Determine which nodes to start graphing from
 my @initial_nodes = ();
 if ( defined $opt{start} ) {
@@ -537,9 +593,10 @@ if ( !keys %$funcDefinition or !@initial_nodes ) {
         }
         if ( $language !~ /^(tcl|pl|py)$/ ) {
             say "        It is possible that $scriptName is not searching for them correctly";
-            say "        It uses this regular expression:";
-            say "            $languageSyntax{functionDefinition}{$language}";
-            say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition'\n";
+            say "        It parses one line at a time, using this regular expression for $language:";
+            say "            ^$languageSyntax{functionDefinition}{$language}";
+            say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition',";
+            say "          and ensure that the function name is captured in the 3rd group'\n";
         }
     }
     exit 1;
@@ -845,11 +902,12 @@ if ( $output =~ /\.dot$/ ) {
         ls $image;
         #say `ls -l $image`;  # commented because of regressions
         unless ( $opt{noShow} ) {
+            # eog is nice because it has zoom in/out
             my $displayExecutable = whichCommand( 'eog', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
             if ( defined $displayExecutable ) {
                 $cmd = "$displayExecutable $image";
                 d '$cmd';
-                say "Displaying $image";
+                say "Displaying $image using '$displayExecutable'";
                 say `$cmd 2>/dev/null &`;
             } else {
                 say "WARNING:  Could not find a command to display $image";
@@ -880,7 +938,11 @@ sub getScriptType {
         return 'cpp';
     } elsif ( $file =~ /\.(f\d+|fortran)$/ ) {
         return 'for';
+    } elsif ( $file =~ /\.p6$/ ) {
+        return 'pl';
     } elsif ( $file =~ /\.pm$/ ) {
+        return 'pl';
+    } elsif ( $file =~ /\.raku(mod)?$/ ) {
         return 'pl';
     } elsif ( $file =~ /\.tn$/ ) {
         return 'tcl';
@@ -902,13 +964,13 @@ sub getScriptType {
         # from shebang
         if ( $filetype =~ /^(node|nodejs)$/ ) {
             return 'js';
-        } elsif ( $filetype =~ /^(perl)$/ ) {
+        } elsif ( $filetype =~ /^perl6?$/ ) {
             return 'pl';
-        } elsif ( $filetype =~ /^(python)[0-9.]*$/ ) {
+        } elsif ( $filetype =~ /^python[0-9.]*$/ ) {
             return 'py';
         } elsif ( $filetype =~ /^ruby$/ ) {
             return 'rb';
-        } elsif ( $filetype =~ /^(tn_shell)$/ ) {
+        } elsif ( $filetype =~ /^tn_shell$/ ) {
             return 'tcl';
         }
     }
@@ -1033,7 +1095,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v15 Thu Apr 22 12:41:08 PDT 2021
+v16 Mon Apr 26 17:57:56 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
