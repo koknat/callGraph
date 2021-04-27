@@ -238,14 +238,14 @@ my %languageSyntax = (
         lua   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
         m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
         pas   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        php   => '(\s*)(?:private\s+|protected\s+|public\s+)?(function)\s+(\w+)\s*\(.*\)',
+        php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(.*\)',
         pl    => '(\s*)(sub)\s+(\w+)',
         py    => '(\s*)(def)\s+(\w+)\(.*\):',
         r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
         rb    => '(\s*)(def)\s+(\w+)\s*\(.*\)',
         rs    => '(\s*)(fn)\s+(\w+)',
         sh    => '(\s*)(function)\s+(\w+)',
-        swift => '(\s*)(func)\s+(\w+)',
+        swift   => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
         tcl   => '(\s*)(proc)\s+([\w:]+)',
         # C, C++, and Java syntaxes are not well suited for regexes
         #     public static void main(String[] args) {}
@@ -516,19 +516,19 @@ d '$call_graph';
 
 if ( $opt{obfuscate} ) {
     my %cache;
-    $call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => { __MAIN__ => 1 }, jargon => [ qw( aerate amplify approximate assemble benchmark calculate compile compress decode defrag delete download emulate encapsulate encode enhance exaggerate grep hypothesize infer inspect interpolate multiplex mutate obfuscate predict process procrastinate profile prune refactor rewind smite spawn swizzle transform translate)]});
-    #$call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => { __MAIN__ => 1 }, jargon => [ qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instatiate interpolate ionize irraditate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize saute scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell )]});
+    #$call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => { __MAIN__ => 1 }, jargon => [ qw( aerate amplify approximate assemble benchmark calculate compile compress decode defrag delete download emulate encapsulate encode enhance exaggerate grep hypothesize infer inspect interpolate multiplex mutate obfuscate predict process procrastinate profile prune refactor rewind smite spawn swizzle transform translate)]});
+    $call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => [ qw( __MAIN__ ) ], jargon => [ qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instatiate interpolate ionize irraditate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize saute scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal squeeze steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell )]});
     sub renameFunctions {
         my ($in, $options) = @_;
         my $new;
         my $numFunctions = scalar keys %{$in};
         my $numMapped = scalar @{$options->{jargon}};
-        my $numSkipped = scalar keys %{$options->{ignore}};
+        my $numSkipped = @{$options->{ignore}};
         d '$in $options $numFunctions $numMapped';
-        say "$numFunctions functions (including __MAIN__)";
-        say "$numSkipped skipped function names";
+        say "$numFunctions function names (including __MAIN__)";
+        say "$numSkipped function names will not be mapped";
         say "$numMapped obfuscated names in the jargon list";
-        die "\nERROR:  Obfuscation needs a biggger word list\n" if $numFunctions > ( $numMapped + $numSkipped );
+        say "WARNING:  Obfuscation needs a bigger word list, will use random words" if $numFunctions > ( $numMapped + $numSkipped );
         for my $from_file_sub ( keys %{ $in } ) {
             my ( $from_file, $from_sub ) = split( /:/, $from_file_sub );
             my $from_sub_new = transformVerbs($from_sub, $options);
@@ -546,21 +546,30 @@ if ( $opt{obfuscate} ) {
     sub transformVerbs {
         my ($name, $options) = @_;
         my $cache = $options->{cache};
-        #d '$options $cache';
         my $new;
         if ( defined $cache->{$name} ) {
+            # We've seen this one before
             $new = $cache->{$name};
-        } elsif ( $options->{ignore}{$name} ) {
+        } elsif ( grep( /^$name$/, @{$options->{ignore}} ) ) {
+            # Keep the same name
+            $new = $name;
+            $cache->{$name} = $new;
+        } elsif ( ! scalar @{$options->{jargon}} ) {
+            # The word list has been used up, think of a random word
+            SCRABBLE:
+            my @letters = split //, 'aaaaaaaaabbccddddeeeeeeeeeeeeffgggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz';
+            my $name = join '', @letters[map rand @letters, 1 .. 9];
+            goto SCRABBLE if defined $cache->{$name};  # Don't re-use any random words
             $new = $name;
             $cache->{$name} = $new;
         } else {
+            # Grab a name out of the bag
             my $i = rand(@{$options->{jargon}});
             $new = $options->{jargon}[$i];
             $options->{jargon}[$i] = undef;  # Ensure that same name is not mapped twice
             @{$options->{jargon}} = grep { defined($_) } @{$options->{jargon}};
             $cache->{$name} = $new;
         }
-        #d '$new';
         return $new;
     }
 }
@@ -1095,7 +1104,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v17 Mon Apr 26 20:21:57 PDT 2021
+v18 Tue Apr 27 10:51:07 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
