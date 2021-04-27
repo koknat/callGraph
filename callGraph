@@ -234,7 +234,7 @@ my %languageSyntax = (
         for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|pure\s+|real\s+|recursive\s+)*(function)\s+(\w+)\s*\(.*\)',
         go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of func (f *Field) Alive(x, y int) bool {}
         js    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        kt    => '(\s*)(fun)\s+(\w+)\s*\(.*\)',
+        kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(.*\)',
         lua   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
         m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
         pas   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
@@ -1095,7 +1095,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v16 Mon Apr 26 17:57:56 PDT 2021
+v17 Mon Apr 26 20:21:57 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
