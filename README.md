@@ -11,8 +11,6 @@ For these languages, consider using a purpose-built tool such as Doxygen, kcache
 
 !["Sample output"](callGraph.png)
 
-    'callGraph' by Chris Koknat
-
     Usage:
         callGraph  <files>  <options>
         
