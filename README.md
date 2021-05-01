@@ -1,9 +1,9 @@
 ## A multi-language tool to parse source code for function definitions and calls
-callGraph statically generates a call graph image and displays it on screen<br>
 A call graph shows how functions are called within a program.<br>
 Each oval represents a function, and each arrow indicates a function call.<br>
 In the diagram below, the main program is represented by node MAIN.  It calls 6 functions, one of which calls other functions.<br>
 <br>
+callGraph statically generates a call graph image and displays it on screen<br>
 Supported languages are: awk, bash, basic, fortran, go, lua, javascript, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, swift, and tcl.<br>
 C/C++/Java are not supported, since their complicated syntax requires heavy machinery.<br>
   For these languages, consider using a purpose-built tool such as Doxygen, kcachegrind, Intel Single Event API, or Eclipse instead.
