@@ -3,7 +3,7 @@ A call graph shows how functions are called within a program.<br>
 Each oval represents a function, and each arrow indicates a function call.<br>
 In the diagram below, the main program is represented by node MAIN.  It calls 6 functions, one of which calls other functions.<br>
 <br>
-callGraph statically generates a call graph image and displays it on screen<br>
+callGraph statically generates a call graph image and displays it on screen.<br>
 Supported languages are: awk, bash, basic, fortran, go, lua, javascript, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, swift, and tcl.<br>
 <br>
 c/c++/java are not supported, since their complicated syntax requires heavy machinery.<br>
