@@ -1,5 +1,5 @@
 ## A multi-language tool to parse source code for function definitions and calls
-A call graph shows how functions are called within a program.<br>
+A call graph shows how functions call each other within a program.<br>
 Each oval represents a function, and each arrow indicates a function call.<br>
 In the diagram below, the main program is represented by node MAIN.  It calls 6 functions, one of which calls other functions.<br>
 <br>
