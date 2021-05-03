@@ -1,5 +1,6 @@
 #!/home/utils/node-v14.5.0/bin/node
 // #!/usr/bin/env node
+// Same example for .ts typescript
 
 function foo() {
     arg1 = 'a'

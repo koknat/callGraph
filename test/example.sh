@@ -1,6 +1,6 @@
 #!/bin/sh
 
-function baz {
+baz() {
     echo "world ${globalList[1]}"
 }
 function bar {
@@ -13,7 +13,7 @@ function bar {
     echo "hello"
     baz
 }
-function foo {
+foo() {
     arg1="a"
     bar ${globalList[1]}
 }

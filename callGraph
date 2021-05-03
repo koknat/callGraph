@@ -21,8 +21,10 @@ Purpose:
     $scriptName is a multi-language tool to statically parse source code for function definitions and calls.
     It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as
-    awk, bash, basic, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust, and swift.
-    C/C++/Java are not supported, since their complicated syntax requires a real parser.
+    awk, bash, basic, dart, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust,
+      swift, and typescript.
+    C/C++/Java are not supported, since their complicated syntax requires heavy machinery.
+        For these languages, consider using Doxygen or kcachegrind or Intel Single Event API or Eclipse instead.
 
 Usage:
     $scriptName  <files>  <options>
@@ -40,11 +42,15 @@ Options:
                                These are displayed in green.
                                This is useful when parsing a large script, as the generated graph can be huge.
                                In addition, the calls leading to this function are charted.
-                               Functions whichare not reachable from one of the starting points
+                               Functions which are not reachable from one of the starting points
                                  are not charted.
+                               -start __MAIN__  can be very useful when multiple source files
+                                 are specified on the command line
 
     -ignore <regex>            Specify function(s) to ignore.
                                This is useful when pruning the output of a large graph.
+                               In particular, use it to remove logging or other helper functions which are
+                                 called by many functions, and only clutter up the graph.
                                To ignore multiple functions, use this regex format:
                                    -ignore '(abc|xyz)'
 
@@ -136,13 +142,16 @@ Requirements:
 # Additional caveats:
 #     it is assumed that function names are unique across files
 # Notes:
-#     For C/C++/Java, consider using the dynamic profiler valgrind/kcachegrind
 #     For Perl, if you need something more sophisticated, you can run the dynamic profiler NYTProf:
 #         <path_to_perl>/bin/perl -d:NYTProf <script>
 #         <path_to_perl>/bin/nytprofcg
 #         kcachegrind nytprof.callgrind
 #     Python and PHP can also use a similar toolchain
 #     Dynamic generation will only include paths which are actually run, and may take much longer to run than static generation
+# Goals:
+#     Works on any Linux system (including Apple), as long as GraphViz is installed
+#     Ease of use:  user performs one step to parse file, create png, display png
+#     Monolithic code for ease of sharing
 
 my %opt;
 my $d;
@@ -160,6 +169,7 @@ Getopt::Long::GetOptions(
     'noShow',
     'obfuscate',
     'writeSubsetCode=s',
+    'writeFunctions',
     'd' => sub { $d = 1 },
 ) or usage();
 usage() if $opt{help} or !@ARGV;
@@ -176,7 +186,7 @@ my @files = @ARGV;
 for my $file (@ARGV) {
     die "\nERROR:  $file not found!\n" if !-r $file;
 }
-my $output;
+my ($tmpdir, $output);
 if ( defined $opt{output} ) {
     $output = $opt{output};
     if ( -f $output ) {
@@ -187,10 +197,10 @@ if ( defined $opt{output} ) {
 } else {
     if ( -w '.' ) {
         #$output = './' . basename( $ARGV[0] );
-        my $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
+        $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
         $output = "$tmpdir/" . basename( $ARGV[0] );
     } else {
-        my $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
+        $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
         $output = "$tmpdir/" . basename( $ARGV[0] );
     }
 }
@@ -220,269 +230,378 @@ $dot .= '.dot';
 
 # Determine language
 die "\nERROR:  No input files specified!\n" unless @ARGV;
-my $language = defined $opt{language} ? $opt{language} : getScriptType( file => $ARGV[0], scriptsOnly => 1 );
+my $language = defined $opt{language} ? $opt{language} : getScriptType( file => $files[0], scriptsOnly => 1 );
 d '$language';
 die "\nERROR:  language could not be determined.  Use option -language <language>\n" if !defined $language;
+my $main = '__MAIN__';
 
-# Define the regular expressions which detect function definitions & calls
-my %languageSyntax = (
-    # http://rigaux.org/language-study/syntax-across-languages.html
-    # To add support for another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
-    functionDefinition => {
-        awk   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        bas   => '(\s*)(sub)\s+(\w+)\s*\(.*\)',
-        for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|pure\s+|real\s+|recursive\s+)*(function)\s+(\w+)\s*\(.*\)',
-        go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of func (f *Field) Alive(x, y int) bool {}
-        js    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(.*\)',
-        lua   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
-        pas   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-        php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(.*\)',
-        pl    => '(\s*)(sub)\s+(\w+)',
-        py    => '(\s*)(def)\s+(\w+)\(.*\):',
-        r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
-        rb    => '(\s*)(def)\s+(\w+)\s*\(.*\)',
-        rs    => '(\s*)(fn)\s+(\w+)',
-        sh    => '(\s*)(function)\s+(\w+)',
-        swift   => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
-        tcl   => '(\s*)(proc)\s+([\w:]+)',
-        # C, C++, and Java syntaxes are not well suited for regexes
-        #     public static void main(String[] args) {}
-        # Since java function does not begin with 'function' or similar, require that the opening curly brace is on the same line
-        #         spaces         public static                                                                         void                foo
-        #java => '^()((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*\{\s*$',
-        java => '(\s*)(?=public|private|protected|static|final|native|synchronized|abstract|transient)([^(]+)\s+(\S+)\s*\(.*\)\s*{',
-        # cpp regex will be somewhat similar to java, but a lot more complicated.  I'm not pursuing this
-        # To create a cpp call graph:
-        #     clang++ -S -emit-llvm main.cpp -o - | opt -analyze -dot-callgraph
-        #     dot -Tpng -ocallgraph.png callgraph.dot
-        #cpp  => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
-        cpp => '(\s*)(?=.*(?:void|bool|int|short|long|double|char))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
-        # Attempting to support simple C syntax
-        # int main(int argc, char *argv[])
-        # int CTclParser::SplitList( int *line, char *list, int *argcPtr, char ***argvPtr )
-        #c    => '(\s*)([^(]+)\s+(\S+)\s*\(.*\)',
-        c => '(\s*)(?=.*(?:void|bool|int|short|long|double|char))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
-    },
-    functionEnd => {
-        awk   => '\s*}',
-        bas   => '\s*end sub',
-        c     => '\s*}',
-        cpp   => '\s*}',
-        for   => '\s*function end',
-        go    => '\s*}',
-        java  => '\s*}',
-        js    => '\s*}',
-        kt    => '\s*}',
-        lua   => '\s*end',
-        m     => '\s*end',
-        pas   => '\s*end',
-        php   => '\s*}',
-        pl    => '\s*}',
-        py    => '\s*\S',
-        r     => '\s*}',
-        rb    => '\s*end',
-        rs    => '\s*}',
-        sh    => '\s*}',
-        swift => '\s*}',
-        tcl   => '\s*}',
-    },
-    functionCall => {
-        awk   => '(\w+)\s*\(',
-        bas   => 'call\s+(\w+)\s*\(',
-        c     => '(\w+)\s*\(',
-        cpp   => '(\w+)\s*\(',
-        for   => '(\w+)\s*\(',
-        go    => '(\w+)\s*\(',
-        java  => '(\w+)\s*\(',
-        js    => '(\w+)\s*\(',
-        kt    => '(\w+)\s*\(',
-        lua   => '(\w+)\s*\(',
-        m     => '(\w+)\s*\(',
-        pas   => '(\w+)\s*\(',
-        php   => '(?<![\$])(\w+)\s*\(',        # (?< ...) is a negative lookahead assertion
-        pl    => '(?<![\$\%\@])(\w+)\s*\(',    # while it's possible to call functions without the '(', this is not commonly done
-        py    => '(\w+)\s*\(',
-        r     => '(\w+)\s*\(',
-        rb    => '(\w+)\s*\(',
-        rs    => '(\w+)\s*\(',
-        sh    => '(\w+)',
-        swift => '(\w+)\s*\(',
-        tcl   => '(?<![\$])(\w+)\s*',
-    },
-    comment => {
-        # Comments are removed
-        awk   => '#',
-        bas   => '^REM\s+',
-        c     => '//',                         # doesn't handle multiline comments
-        cpp   => '//',                         # doesn't handle multiline comments
-        for   => '!',
-        go    => '//',
-        java  => '//',                         # doesn't handle multiline comments
-        js    => '//',
-        kt    => '//',
-        lua   => '--',
-        m     => '%',
-        pas   => '(//|\{.*\}|\(\*.*\*\))',
-        php   => '(//|#)',                     # doesn't handle multiline comments
-        pl    => '#',                          # unless $line =~ /s#[^#]+#[^#]+#/;
-        py    => '#',
-        r     => '#',
-        rb    => '#',
-        rs    => '//',
-        sh    => '#',
-        swift => '//',                         # doesn't handle multiline comments
-        tcl   => ';?\s*#',                     # remove comments and superfluous ';'
-    },
-    variable => {
-        # This only affects the global variable searching with -verbose mode
-        awk   => '(\w+)',
-        bas   => '(\w+)',
-        c     => '(\w+)',
-        cpp   => '(\w+)',
-        for   => '(\w+)',
-        go    => '(\w+)',
-        java  => '(\w+)',
-        js    => '(\w+)',
-        kt    => '(\w+)',
-        lua   => '(\w+)',
-        m     => '(\w+)',
-        pas   => '(\w+)',
-        php   => '[\$]\{?(\w+)',
-        pl    => '[\$\@\%]\{?(\w+)',
-        py    => '(\w+)',
-        r     => '(\w+)',
-        rb    => '(\w+)',
-        rs    => '(\w+)',
-        sh    => '(\w+)',
-        swift => '(\w+)',
-        tcl   => '(\w+)',              # set foo $bar  <- one of the variables does not have a '$'
-    },
-);
-if ( !defined $languageSyntax{functionDefinition}{$language} ) {
-    say "ERROR:  Language not recognized.  Specify it with  -language <language>";
-    say "        For example:  -language pl";
-    say "        For example:  -language py";
-    say "        For example:  -language tcl";
-    say "        Supported languages are:  " . join ' ', sort keys %{ $languageSyntax{functionDefinition} };
-    exit 1;
+sub defineSyntax {
+    my $language = shift;
+    # Define the regular expressions which detect function definitions & calls
+    my $languageSyntax = {
+        # http://rigaux.org/language-study/syntax-across-languages.html
+        # To add support for another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
+        functionDefinition => {
+            awk   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            bas   => '(\s*)(sub)\s+(\w+)\s*\(.*\)',
+            dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(.*\)\s*{',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
+            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|pure\s+|real\s+|recursive\s+)*(function)\s+(\w+)\s*\(.*\)',
+            go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
+            js    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(.*\)',
+            lua   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
+            pas   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(.*\)',
+            pl    => '(\s*)(sub)\s+(\w+)',
+            py    => '(\s*)(def)\s+(\w+)\(.*\):',
+            r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
+            rb    => '(\s*)(def)\s+(\w+)\s*\(.*\)',
+            rs    => '(\s*)(fn)\s+(\w+)',
+            sh    => '(\s*)(function\b|)\s*(\w+)\(?\)?\s*{',
+            swift   => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
+            tcl   => '(\s*)(proc)\s+([\w:]+)',
+            ts    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            # C, C++, and Java syntaxes are not well suited for regexes
+            #
+            # Since java function does not begin with 'function' or similar, require that the opening curly brace is on the same line
+            #         spaces         public static                                                                         void                foo
+            #java => '^()((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*\{\s*$',
+            java => '(\s*)(?=public|private|protected|static|final|native|synchronized|abstract|transient)([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+            # cpp regex will be somewhat similar to java, but a lot more complicated.  I'm not pursuing this
+            # To create a cpp call graph:
+            #     clang++ -S -emit-llvm main.cpp -o - | opt -analyze -dot-callgraph
+            #     dot -Tpng -ocallgraph.png callgraph.dot
+            #cpp  => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
+            cpp => '(\s*)(?=.*(?:void|bool|int|short|long|double|char|size_t|string|vector|unsigned|istream|ostream))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+            # Attempting to support simple C syntax
+            # int main(int argc, char *argv[])
+            # int CTclParser::SplitList( int *line, char *list, int *argcPtr, char ***argvPtr )
+            #c    => '(\s*)([^(]+)\s+(\S+)\s*\(.*\)',
+            c => '(\s*)(?=.*(?:void|bool|int|short|long|double|char|size_t))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+        },
+        functionEnd => {
+            awk   => '\s*}',
+            bas   => '\s*end sub',
+            c     => '\s*}',
+            cpp   => '\s*}',
+            dart  => '\s*}',
+            for   => '\s*function end',
+            go    => '\s*}',
+            java  => '\s*}',
+            js    => '\s*}',
+            kt    => '\s*}',
+            lua   => '\s*end',
+            m     => '\s*end',
+            pas   => '\s*end',
+            php   => '\s*}',
+            pl    => '\s*}',
+            py    => '\s*\S',
+            r     => '\s*}',
+            rb    => '\s*end',
+            rs    => '\s*}',
+            sh    => '\s*}',
+            swift => '\s*}',
+            tcl   => '\s*}',
+            ts    => '\s*}',
+        },
+        functionCall => {
+            awk   => '(\w+)\s*\(',
+            bas   => 'call\s+(\w+)\s*\(',
+            c     => '(\w+)\s*\(',
+            cpp   => '(\w+)\s*\(',
+            dart  => '(\w+)\s*\(',
+            for   => '(\w+)\s*\(',
+            go    => '(\w+)\s*\(',
+            java  => '(\w+)\s*\(',
+            js    => '(\w+)\s*\(',
+            kt    => '(\w+)\s*\(',
+            lua   => '(\w+)\s*\(',
+            m     => '(\w+)\s*\(',
+            pas   => '(\w+)\s*\(',
+            php   => '(?<![\$])(\w+)\s*\(',        # (?< ...) is a negative lookahead assertion
+            pl    => '(?<![\$\%\@])(\w+)\s*\(',    # while it's possible to call functions without the '(', this is not commonly done
+            py    => '(\w+)\s*\(',
+            r     => '(\w+)\s*\(',
+            rb    => '(\w+)\s*\(',
+            rs    => '(\w+)\s*\(',
+            sh    => '(\w+)',
+            swift => '(\w+)\s*\(',
+            tcl   => '(?<![\$])(\w+)\s*',
+            ts    => '(\w+)\s*\(',
+        },
+        comment => {
+            # Comments are removed
+            awk   => '#',
+            bas   => '^REM\s+',
+            c     => '//',                         # doesn't handle multiline comments
+            cpp   => '//',                         # doesn't handle multiline comments
+            dart  => '//',                         # doesn't handle multiline comments
+            for   => '!',
+            go    => '//',
+            java  => '//',                         # doesn't handle multiline comments
+            js    => '//',
+            kt    => '//',
+            lua   => '--',
+            m     => '%',
+            pas   => '(//|\{.*\}|\(\*.*\*\))',
+            php   => '(//|#)',                     # doesn't handle multiline comments
+            pl    => '#',                          # unless $line =~ /s#[^#]+#[^#]+#/;
+            py    => '#',
+            r     => '#',
+            rb    => '#',
+            rs    => '//',
+            sh    => '#',
+            swift => '//',                         # doesn't handle multiline comments
+            tcl   => ';?\s*#',                     # remove comments and superfluous ';'
+            ts    => '//',
+        },
+        variable => {
+            # This only affects the global variable searching with -verbose mode
+            awk   => '(\w+)',
+            bas   => '(\w+)',
+            c     => '(\w+)',
+            cpp   => '(\w+)',
+            dart  => '(\w+)',
+            for   => '(\w+)',
+            go    => '(\w+)',
+            java  => '(\w+)',
+            js    => '(\w+)',
+            kt    => '(\w+)',
+            lua   => '(\w+)',
+            m     => '(\w+)',
+            pas   => '(\w+)',
+            php   => '[\$]\{?(\w+)',
+            pl    => '[\$\@\%]\{?(\w+)',
+            py    => '(\w+)',
+            r     => '(\w+)',
+            rb    => '(\w+)',
+            rs    => '(\w+)',
+            sh    => '(\w+)',
+            swift => '(\w+)',
+            tcl   => '(\w+)',              # set foo $bar  <- one of the variables does not have a '$'
+            ts    => '(\w+)',
+        },
+    };
+    if ( !defined $languageSyntax->{functionDefinition}{$language} ) {
+        say "ERROR:  Language not recognized.  Specify it with  -language <language>";
+        say "        For example:  -language pl";
+        say "        For example:  -language py";
+        say "        For example:  -language tcl";
+        say "        Supported languages are:  " . join ' ', sort keys %{ $languageSyntax->{functionDefinition} };
+        exit 1;
+    }
+    return $languageSyntax;
 }
 
-# Create data structure of each function and the functions they call
-my $main = '__MAIN__';
-my ( $file, $shebang, $in_pod, @funcName, @funcSpaces, $funcDefinition, $funcContents, $funcCall );
-for my $file (@files) {
-    open my $FH, $file or die "\nERROR:  Cannot find file $file\n";
-    @funcName   = ($main);
-    @funcSpaces = ('');
-    my $fileContent = do { local $/; <$FH> };
-    # Handle '\' line continuation characters
-    $fileContent =~ s/\\\n//g;
-    if ( $language =~ /^(c|cpp|java)$/ ) {
-        # Convert ')\n{' to ') {', which is only needed for C/C++/Java
-        $fileContent =~ s/\)\s*\n\s*{/) {/g;
-    }
-    my $lineNum = 0;
-  LINE: for my $line ( split /\n/, $fileContent ) {
-        $lineNum++;
-        d '$lineNum';
-        chomp($line);
-        my $originalLine = $line;
-        $shebang = $line if $lineNum == 1 and $line =~ /^#!/;
-        next if $line =~ /^\s*(#.*)?$/;    # skip empty lines and whole-line comments
-        d '$line';
+sub parseFiles {
+    # Create data structure of each function and the functions they call
+    my %options = @_;
+    my $language = $options{language};
+    my $languageSyntax = $options{languageSyntax};
+    my ( $file, $shebang, $in_pod, @funcName, @funcSpaces, $funcDefinition, $funcContents, $funcCall );
+    for my $file (@{$options{files}}) {
+        open my $FH, $file or die "\nERROR:  Cannot find file $file\n";
+        @funcName   = ($main);
+        @funcSpaces = ('');
+        my $fileContent = do { local $/; <$FH> };
+        # Handle '\' line continuation characters
+        $fileContent =~ s/\\\n//g;
+        if ( $language =~ /^(c|cpp|java)$/ ) {
+            # Convert ')\n{' to ') {', which is only needed for C/C++/Java
+            $fileContent =~ s/\)\s*\n\s*{/) {/g;
+        }
+        my $lineNum = 0;
+      LINE: for my $line ( split /\n/, $fileContent ) {
+            $lineNum++;
+            d '.';
+            d '$lineNum';
+            chomp($line);
+            my $originalLine = $line;
+            $shebang = $line if $lineNum == 1 and $line =~ /^#!/;
+            next if $line =~ /^\s*(#.*)?$/;    # skip empty lines and whole-line comments
+            d '$line';
 
-        if ( $language eq 'pl' ) {
-            if ( $line =~ /^__END__/ ) {
-                last LINE;
+            if ( $language eq 'pl' ) {
+                if ( $line =~ /^__END__/ ) {
+                    last LINE;
+                }
+                # Skip Perl POD documentation
+                if ( $line =~ /^=(\w+)/ ) {
+                    $in_pod = ( $1 eq 'cut' ) ? 0 : 1;
+                    next;
+                }
+                next if $in_pod;
             }
-            # Skip Perl POD documentation
-            if ( $line =~ /^=(\w+)/ ) {
-                $in_pod = ( $1 eq 'cut' ) ? 0 : 1;
+
+            # Remove comments.  This is not 100% optimal, as '#' may exist in the middle of a "string"
+            if ( $language eq 'pl' ) {
+                $line =~ s/\s*$languageSyntax->{comment}{$language}.*// unless $line =~ /s#[^#]+#[^#]+#/;
+            } else {
+                $line =~ s/\s*$languageSyntax->{comment}{$language}.*//;
+            }
+
+            # Perl sub, TCL proc, Python/Ruby def
+            if ( $line =~ /^$languageSyntax->{functionDefinition}{$language}/i ) {
+                my $leadingSpaces = $1;
+                my $funcKeyword   = $2;
+                my $funcName      = $3;
+                #my $junk4 = $4;
+                #my $junk5 = $5;
+                #my $junk6 = $6;
+                #my $junk7 = $7;
+                #d '$leadingSpaces $funcKeyword $funcName $junk4 $junk5 $junk6 $junk7';
+                # TCL proc may start with or contain '::'
+                $funcName =~ s/^.*://;    # Remove package::
+                d "Found start of function '$funcName'";
+                if ( $funcName eq '' ) {
+                    # TCL proc ::$name dynamic definitions
+                    say "Found dynamically generated proc at line $. of $file.  The call graph will show an empty bubble.";
+                }
+                $funcDefinition->{$funcName}{$file}{line} = $.;
+                $funcContents->{$funcName}{$file} = "$line\n";
+                if ( $language eq 'py' ) {
+                    # Python does not mark the end of functions.  Can't support the parsing of nested functions
+                    @funcName   = ( '__MAIN__', $funcName );
+                    @funcSpaces = ( '',         $leadingSpaces );
+                } elsif ( $line =~ /}\s*(;\s*)?(#.*)?$/ ) {
+                    # This function has started and ended on the same line, do not push
+                    # proc d {args} {}
+                    # sub say { print @_, "\n" }; # comment
+                } else {
+                    push @funcName,   $funcName;
+                    push @funcSpaces, $leadingSpaces;
+                }
                 next;
             }
-            next if $in_pod;
-        }
 
-        # Remove comments.  This is not 100% optimal, as '#' may exist in the middle of a "string"
-        if ( $language eq 'pl' ) {
-            $line =~ s/\s*$languageSyntax{comment}{$language}.*// unless $line =~ /s#[^#]+#[^#]+#/;
-        } else {
-            $line =~ s/\s*$languageSyntax{comment}{$language}.*//;
-        }
-
-        # Perl sub, TCL proc, Python/Ruby def
-        if ( $line =~ /^$languageSyntax{functionDefinition}{$language}/i ) {
-            my $leadingSpaces = $1;
-            my $funcKeyword   = $2;
-            my $funcName      = $3;
-            #my $junk4 = $4;
-            #my $junk5 = $5;
-            #my $junk6 = $6;
-            #my $junk7 = $7;
-            #d '$leadingSpaces $funcKeyword $funcName $junk4 $junk5 $junk6 $junk7';
-            # TCL proc may start with or contain '::'
-            $funcName =~ s/^.*://;    # Remove package::
-            d "Found start of function '$funcName'";
-            if ( $funcName eq '' ) {
-                # TCL proc ::$name dynamic definitions
-                say "Found dynamically generated proc at line $. of $file.  The call graph will show an empty bubble.";
-            }
-            $funcDefinition->{$funcName}{$file}{line} = $.;
-            $funcContents->{$funcName}{$file} = "$line\n";
-            if ( $language eq 'py' ) {
-                # Python does not mark the end of functions.  Can't support the parsing of nested functions
-                @funcName   = ( '__MAIN__', $funcName );
-                @funcSpaces = ( '',         $leadingSpaces );
-            } elsif ( $line =~ /}\s*(;\s*)?(#.*)?$/ ) {
-                # This function has started and ended on the same line, do not push
-                # proc d {args} {}
-                # sub say { print @_, "\n" }; # comment
+            # End of sub or proc
+            d( '@funcName $funcName[-1] $main @funcSpaces', 'z' );
+            if ( $funcName[-1] eq $main ) {
+                $funcContents->{ $funcName[-1] }{$file} .= "$line\n";
             } else {
-                push @funcName,   $funcName;
-                push @funcSpaces, $leadingSpaces;
-            }
-            next;
-        }
-
-        # End of sub or proc
-        d( '@funcName @funcSpaces', 'z' );
-        if ( $funcName[-1] ne $main ) {
-            # Current sub name is not __MAIN__
-            # Note that this implementation could be fooled by multiline strings
-            if ( $line =~ /^$languageSyntax{functionEnd}{$language}/i and $line =~ /^$funcSpaces[-1]\S/ ) {
-                d "Found end of function $funcName[-1]";
-                if ( $funcSpaces[0] eq '' ) {
-                    # This is a tweak designed to potentially recover from incorrect parsing
-                    # If the function starts at the left border, then assume it was not nested in the middle of some other function
-                    @funcName   = ($main);
-                    @funcSpaces = ('');
+                # Current sub name is not __MAIN__
+                # Note that this implementation could be fooled by multiline strings
+                if ( $line =~ /^$languageSyntax->{functionEnd}{$language}/i and $line =~ /^$funcSpaces[-1]\S/ ) {
+                    d "Found end of function $funcName[-1]";
+                    if ( $funcSpaces[0] eq '' ) {
+                        if ( $language eq 'py' ) {
+                            # In Python, there is no '}' to buffer the end of one function from the beginning of the next
+                            $funcContents->{$main}{$file} .= "$line\n";
+                        } else {
+                            # This is a tweak designed to potentially recover from incorrect parsing
+                            # If the function starts at the left border, then assume it was not nested in the middle of some other function
+                            $funcContents->{ $funcName[-1] }{$file} .= "$line\n";
+                        }
+                        @funcName   = ($main);
+                        @funcSpaces = ('');
+                    } else {
+                        $funcContents->{ $funcName[-1] }{$file} .= "$line\n";
+                        pop @funcName;
+                        pop @funcSpaces;
+                    }
                 } else {
-                    pop @funcName;
-                    pop @funcSpaces;
+                    $funcContents->{ $funcName[-1] }{$file} .= "$line\n";
                 }
             }
-        }
 
-        $funcContents->{ $funcName[-1] }{$file} .= "$line\n";
-
-        # Find anything that looks like it might be a function, casting a very wide net
-        while ( $line =~ s/^.*?$languageSyntax{functionCall}{$language}//i ) {
-            my $call = $1;
-            if ( $language =~ /^(tcl|pl)$/ ) {
-                $call =~ s/^.*://;    # Remove package::
+            # Find anything that looks like it might be a function, casting a very wide net
+            while ( $line =~ s/^.*?$languageSyntax->{functionCall}{$language}//i ) {
+                my $call = $1;
+                if ( $language =~ /^(tcl|pl)$/ ) {
+                    $call =~ s/^.*://;    # Remove package::
+                }
+                $funcCall->{ $funcName[-1] }{$file}{$call}++;
             }
-            $funcCall->{ $funcName[-1] }{$file}{$call}++;
-        }
 
-        $line =~ s/[\$\%\@]//g;       # To enhance the following debug statement
-        d "remain:  $line" if $line =~ /\S/;    # inspect remainder not caught by the above regex
+            $line =~ s/[\$\%\@]//g;       # To enhance the following debug statement
+            d "remain:  $line" if $line =~ /\S/;    # inspect remainder not caught by the above regex
+        }
     }
+    return ( $shebang, $funcContents, $funcDefinition, $funcCall );
 }
+
+my $languageSyntax = defineSyntax($language);
+my ( $shebang, $funcContents, $funcDefinition, $funcCall ) = parseFiles(language => $language, languageSyntax => $languageSyntax, files => \@files);
 d '$funcDefinition';                            # $funcDefinition->{$funcName}{$file}{line}  = line_number
 d '$funcCall';                                  # $funcCall->{$funcName}{$file}{$word} = occurrences
 #d '$funcContents';    # $funcContents->{$funcName}{$file} = contents (long)
+
+# Experimental feature -writeFunctions
+# Optionally create an output source file for each function in the source file(s)
+if ( 0 and $opt{writeFunctions} ) {
+    my %options;
+    #$options{destDir} = "/tmp/foo";
+    #$options{removeComments} = 1;
+    #$options{grep} = 'get_name';
+    $options{grep} = 'global';
+    $options{sort} = 1;
+    say "\n### Grepping for $options{grep} ###"; # TODO remove this
+    #$options{reverse} = 1;
+    #$options{numOccurrences} = 1;
+    #my $d = 1;
+    #d '$funcContents';
+    my %matched;
+    for my $func ( keys %{$funcContents} ) {
+        d '$func';
+        for my $file ( keys %{$funcContents->{$func}} ) {
+            d '$file';
+            if ( defined $options{grep} ) {
+                for my $line ( split /\n/, $funcContents->{$func}{$file} ) {
+                    d '$line';
+                    if ( $line =~ /$options{grep}/ ) {
+                        $line =~ s/^\s*//;
+                        $matched{$file}{$func}{occurrences}++;
+                        push @{$matched{$file}{$func}{contents}}, '    '.$line;
+                    }
+                }
+                d '%matched';
+            } else {
+                my $bfile = basename($file);
+                my $ext = '';
+                if ( $bfile =~ /(.*)(\..*)$/ ) {
+                    ($bfile, $ext) = ($1, $2);
+                }
+                my $functionFile = "$tmpdir/${bfile}__${func}${ext}";
+                say "Creating function source file $functionFile";
+                open( my $OUT, ">", $functionFile ) or die "\nERROR: Cannot open file for writing:  $functionFile\n";
+                print $OUT $funcContents->{$func}{$file};
+                close $OUT;
+                `chmod +x $functionFile`;
+                #say `ls -l $subsetFile`; # commented because of regressions
+            }
+        }
+    }
+    if ( defined $options{grep} ) {
+        my $format;
+        if ( scalar keys %matched == 1 ) {
+            $format = "%s  %s\n";
+        } else {
+            $format = "%s  %s  %s\n";
+        }
+        my $printFilename = scalar keys %matched > 1 ? 1 : 0;
+        d '%matched $printFilename';
+        for my $file ( sort keys %matched ) {
+            my @sorted = sort { $matched{$file}{$a}{occurrences} <=> $matched{$file}{$b}{occurrences} } keys %{$matched{$file}};
+            @sorted = reverse @sorted if $options{reverse};
+            for my $func ( @sorted ) {
+                if ( $printFilename ) {
+                    printf($format, $file, $func, $matched{$file}{$func}{occurrences});
+                } else {
+                    printf($format, $func, $matched{$file}{$func}{occurrences});
+                }
+                if ( ! $options{numOccurrences} ) {
+                    if ( $options{sort} ) {
+                        say (join "\n", sort @{$matched{$file}{$func}{contents}});
+                    } else {
+                        say (join "\n", @{$matched{$file}{$func}{contents}});
+                    }
+                }
+            }
+        }
+    }
+    exit 0;
+}
 
 # Match callers with callees
 # first:    try to find a match within the same file.
@@ -490,6 +609,7 @@ d '$funcCall';                                  # $funcCall->{$funcName}{$file}{
 # third:    complain about an ambiguous call if the callee has multiple definitions
 my $call_graph;
 for my $caller_sub ( keys %{$funcCall} ) {
+    next if ( defined $opt{ignore} and $caller_sub =~ /$opt{ignore}/ );
     for my $caller_file ( keys %{ $funcCall->{$caller_sub} } ) {
         for my $referenced_sub ( keys %{ $funcCall->{$caller_sub}{$caller_file} } ) {
             next unless ( exists $funcDefinition->{$referenced_sub} );
@@ -603,7 +723,7 @@ if ( !keys %$funcDefinition or !@initial_nodes ) {
         if ( $language !~ /^(tcl|pl|py)$/ ) {
             say "        It is possible that $scriptName is not searching for them correctly";
             say "        It parses one line at a time, using this regular expression for $language:";
-            say "            ^$languageSyntax{functionDefinition}{$language}";
+            say "            ^$languageSyntax->{functionDefinition}{$language}";
             say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition',";
             say "          and ensure that the function name is captured in the 3rd group'\n";
         }
@@ -694,7 +814,7 @@ if ( $opt{verbose} ) {
                 # Find anything which might be a var
                 # $var @var %var ${var}
                 d '$originalLine';
-                while ( $originalLine =~ s/$languageSyntax{variable}{$language}// ) {
+                while ( $originalLine =~ s/$languageSyntax->{variable}{$language}// ) {
                     my $var = $1;
                     # $globalRunCount++;
                     d '$var';
@@ -725,7 +845,7 @@ if ( $opt{verbose} ) {
                     # Find anything which might be a var
                     # $var ${var}
                     d '$line';
-                    while ( $line =~ s/$languageSyntax{variable}{$language}// ) {
+                    while ( $line =~ s/$languageSyntax->{variable}{$language}// ) {
                         my $var = $1;
                         d '$var';
                         d '$line';
@@ -744,7 +864,7 @@ if ( $opt{verbose} ) {
                 # Find anything which might be a var
                 # $var @var %var ${var}
                 d '$originalLine';
-                while ( $line =~ s/$languageSyntax{variable}{$language}// ) {
+                while ( $line =~ s/$languageSyntax->{variable}{$language}// ) {
                     my $var = $1;
                     #'    globalRunCount = globalRunCount + 1
                     d '$var';
@@ -755,7 +875,7 @@ if ( $opt{verbose} ) {
             }
         }
         for my $line ( split /\n/, $funcContents->{$sub}{$file} ) {
-            if ( $line =~ /(\w+\.(awk|m|php|pl|py|r|rb|sh|tcl)\b)/ ) {
+            if ( $line =~ /(\w+\.(awk|m|js|php|pl|py|r|rb|sh|tcl)\b)/ ) {
                 my $script = $1;
                 if ( basename($file) ne $script ) {
                     $sub_info{$file}{$sub}{scriptsCalled}{$script}++;
@@ -865,7 +985,7 @@ if ( $opt{verbose} ) {
 }
 
 # -writeSubsetCode
-# Create an output source file which includes only the subroutines included in the graph
+# Optionally create an output source file which includes only the subroutines included in the graph
 if ( $opt{writeSubsetCode} ) {
     #my $subsetFile = "$opt{writeSubsetCode}.$language";
     my $subsetFile = "$opt{writeSubsetCode}";
@@ -947,7 +1067,7 @@ sub getScriptType {
     my $file = $options{file};
     $file =~ s/#.*//;    # Remove p4 rev number
     my $filetype;
-    if ( $file =~ /\.(awk|bas|c|cpp|for|go|java|js|kt|lua|m|php|r|pl|py|rb|rs|sh|swift|tcl)$/i ) {
+    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|php|r|pl|py|rb|rs|sh|swift|tcl|ts)$/i ) {
         $filetype = lc($1);
         return $filetype;
     } elsif ( $file =~ /\.basic$/ ) {
@@ -1113,7 +1233,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v19 Tue Apr 27 12:19:42 PDT 2021
+v22 Mon May  3 15:47:26 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify

@@ -75,7 +75,7 @@ if ( runtests('pl') ) {
 }
 if ( runtests('other') ) {
     # Missing .for .lua .pas
-    for my $language (qw( awk bas go js kt m php r rb rs py sh swift tcl )) {
+    for my $language (qw( awk bas dart go js kt m php r rb rs py sh swift tcl )) {
         say $separator;
         runCmpFiles( "$testDir/example.$language", "-n -r -v", "$regressionDir/example.$language.$format" );
     }
@@ -334,7 +334,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v19 Tue Apr 27 12:19:42 PDT 2021
+v22 Mon May  3 15:47:26 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
