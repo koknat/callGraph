@@ -14,7 +14,7 @@ def bar( myList )
     baz()
 end
 
-def baz()
+def baz
     puts("world %s" % $globalList)
 end
 

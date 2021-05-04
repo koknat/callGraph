@@ -4,10 +4,10 @@ DECLARE SUB foo
 DECLARE SUB bar
 DECLARE SUB baz
 
-SUB foo ()
+FUNCTION foo ()
     arg1$ = "a"
     CALL bar(globalList)
-END SUB
+END FUNCTION
 
 SUB bar (myList)
     globalRunCount = globalRunCount + 1

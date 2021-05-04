@@ -21,7 +21,7 @@ Purpose:
     $scriptName is a multi-language tool to statically parse source code for function definitions and calls.
     It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as
-    awk, bash, basic, dart, fortran, go, lua, javascript, kotlin, matlab, pascal, php, R, raku, ruby, rust,
+    awk, bash, basic, dart, fortran, go, javascript, lua, kotlin, matlab, pascal, php, R, raku, ruby, rust,
       swift, and typescript.
     C/C++/Java are not supported, since their complicated syntax requires heavy machinery.
         For these languages, consider using Doxygen or kcachegrind or Intel Single Event API or Eclipse instead.
@@ -148,6 +148,8 @@ Requirements:
 #         kcachegrind nytprof.callgrind
 #     Python and PHP can also use a similar toolchain
 #     Dynamic generation will only include paths which are actually run, and may take much longer to run than static generation
+#     If the resulting png size is too big, use ImageMagick:
+#         convert foo.png -resize 1000 foo-small.png
 # Goals:
 #     Works on any Linux system (including Apple), as long as GraphViz is installed
 #     Ease of use:  user performs one step to parse file, create png, display png
@@ -243,21 +245,21 @@ sub defineSyntax {
         # To add support for another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
         functionDefinition => {
             awk   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-            bas   => '(\s*)(sub)\s+(\w+)\s*\(.*\)',
+            bas   => '(\s*)(?:public\s+)?(function|sub)\s+(\w+)\s*\(.*\)',
             dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(.*\)\s*{',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
-            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|pure\s+|real\s+|recursive\s+)*(function)\s+(\w+)\s*\(.*\)',
+            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|subroutine)\s+(\w+)\s*\(.*\)',  # fortran .fypp is problematic because of preprocessor
             go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
             js    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
             kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(.*\)',
-            lua   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            lua   => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(.*\)',
             m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
-            pas   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            pas   => '(\s*)(function|procedure)\s+(\w+)\s*\(.*\)',
             php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(.*\)',
             pl    => '(\s*)(sub)\s+(\w+)',
             py    => '(\s*)(def)\s+(\w+)\(.*\):',
             r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
-            rb    => '(\s*)(def)\s+(\w+)\s*\(.*\)',
-            rs    => '(\s*)(fn)\s+(\w+)',
+            rb    => '(\s*)(def)\s+(\w+)',
+            rs    => '(\s*)(?:pub\s+)?(fn)\s+(\w+)',
             sh    => '(\s*)(function\b|)\s*(\w+)\(?\)?\s*{',
             swift   => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
             tcl   => '(\s*)(proc)\s+([\w:]+)',
@@ -282,11 +284,11 @@ sub defineSyntax {
         },
         functionEnd => {
             awk   => '\s*}',
-            bas   => '\s*end sub',
+            bas   => '\s*end (function|sub)',
             c     => '\s*}',
             cpp   => '\s*}',
             dart  => '\s*}',
-            for   => '\s*function end',
+            for   => '\s*(function|subroutine) end',
             go    => '\s*}',
             java  => '\s*}',
             js    => '\s*}',
@@ -307,7 +309,7 @@ sub defineSyntax {
         },
         functionCall => {
             awk   => '(\w+)\s*\(',
-            bas   => 'call\s+(\w+)\s*\(',
+            bas   => '(?:call\s+)?(\w+)\s*\(',
             c     => '(\w+)\s*\(',
             cpp   => '(\w+)\s*\(',
             dart  => '(\w+)\s*\(',
@@ -316,14 +318,14 @@ sub defineSyntax {
             java  => '(\w+)\s*\(',
             js    => '(\w+)\s*\(',
             kt    => '(\w+)\s*\(',
-            lua   => '(\w+)\s*\(',
+            lua   => '([\w\.]+)\s*\(',
             m     => '(\w+)\s*\(',
             pas   => '(\w+)\s*\(',
             php   => '(?<![\$])(\w+)\s*\(',        # (?< ...) is a negative lookahead assertion
             pl    => '(?<![\$\%\@])(\w+)\s*\(',    # while it's possible to call functions without the '(', this is not commonly done
             py    => '(\w+)\s*\(',
             r     => '(\w+)\s*\(',
-            rb    => '(\w+)\s*\(',
+            rb    => '(\w+)\s*',
             rs    => '(\w+)\s*\(',
             sh    => '(\w+)',
             swift => '(\w+)\s*\(',
@@ -384,7 +386,7 @@ sub defineSyntax {
         },
     };
     if ( !defined $languageSyntax->{functionDefinition}{$language} ) {
-        say "ERROR:  Language not recognized.  Specify it with  -language <language>";
+        say "ERROR:  Language '$language' not recognized.  Specify it with  -language <language>";
         say "        For example:  -language pl";
         say "        For example:  -language py";
         say "        For example:  -language tcl";
@@ -512,6 +514,7 @@ sub parseFiles {
                     $call =~ s/^.*://;    # Remove package::
                 }
                 $funcCall->{ $funcName[-1] }{$file}{$call}++;
+                d "Found potential function call:  $call";
             }
 
             $line =~ s/[\$\%\@]//g;       # To enhance the following debug statement
@@ -529,7 +532,7 @@ d '$funcCall';                                  # $funcCall->{$funcName}{$file}{
 
 # Experimental feature -writeFunctions
 # Optionally create an output source file for each function in the source file(s)
-if ( 0 and $opt{writeFunctions} ) {
+if ( 1 and $opt{writeFunctions} ) {
     my %options;
     #$options{destDir} = "/tmp/foo";
     #$options{removeComments} = 1;
@@ -718,14 +721,16 @@ if ( !keys %$funcDefinition or !@initial_nodes ) {
         if ( !keys %$funcDefinition ) {
             say "\nERROR:  Could not find any function definitions in your file";
         } else {
-            say "\nERROR:  Could not find any matching function calls in your file";
+            say "\nERROR:  Found function definitions, but could not find any matching function calls in your file";
         }
         if ( $language !~ /^(tcl|pl|py)$/ ) {
-            say "        It is possible that $scriptName is not searching for them correctly";
-            say "        It parses one line at a time, using this regular expression for $language:";
+            say "        It is possible that $scriptName is not searching for them correctly in your .$language file";
+            say "        It parses one line at a time, using this regular expression for function definitions:";
             say "            ^$languageSyntax->{functionDefinition}{$language}";
-            say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition',";
-            say "          and ensure that the function name is captured in the 3rd group'\n";
+            say "        and using this regular expression for function calls:";
+            say "            ^$languageSyntax->{functionCall}{$language}";
+            say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition' and/or 'functionCall',";
+            say "          and ensure that the function name is captured in the 3rd group of the definition'\n";
         }
     }
     exit 1;
@@ -1067,14 +1072,14 @@ sub getScriptType {
     my $file = $options{file};
     $file =~ s/#.*//;    # Remove p4 rev number
     my $filetype;
-    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|php|r|pl|py|rb|rs|sh|swift|tcl|ts)$/i ) {
+    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sh|swift|tcl|ts)$/i ) {
         $filetype = lc($1);
         return $filetype;
     } elsif ( $file =~ /\.basic$/ ) {
         return 'bas';
     } elsif ( $file =~ /\.cc$/ ) {
         return 'cpp';
-    } elsif ( $file =~ /\.(f\d+|fortran)$/ ) {
+    } elsif ( $file =~ /\.(f\d+|fypp|fortran)$/ ) {
         return 'for';
     } elsif ( $file =~ /\.p6$/ ) {
         return 'pl';
@@ -1084,6 +1089,8 @@ sub getScriptType {
         return 'pl';
     } elsif ( $file =~ /\.tn$/ ) {
         return 'tcl';
+    } elsif ( $file =~ /\.vb$/ ) {
+        return 'bas';
     } else {
         # Filename does not have a recognized extension.  Look at the shebang
         if ( -f $file ) {
@@ -1233,7 +1240,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v22 Mon May  3 15:47:26 PDT 2021
+v23 Tue May  4 12:44:34 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify

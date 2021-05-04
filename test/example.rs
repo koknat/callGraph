@@ -9,7 +9,7 @@ fn bar( myList: String ) {
     println!("hello");
     baz();
 }
-fn baz() {
+pub fn baz() {
     println!("world");
 }
 
