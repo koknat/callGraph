@@ -93,7 +93,6 @@ For these languages, consider using a purpose-built tool such as Doxygen, kcache
                 ...
             }
         Since this is not a true parser, the formatting must be consistent so that nesting can be determined.
-        If your Perl script does not follow this rule, consider running it through 'perltidy' first.
         Also, don't expect miracles such as parsing dynamic function calls.
         Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
             and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
