@@ -24,6 +24,10 @@ sub baz {
     chomp(my $arg7 = length(@arg6));
     say "world ${arg2} @arg6";
 }
+sub old1 {
+    # This old code is no longer used, nothing calls it, and it calls nothing
+    my $arg8 = 'zzz';
+}
 # main program
 my $globalRunCount = 0;
 my @globalArray = ( 'red', 'blue' );
@@ -34,8 +38,8 @@ exit 0;
 
 # commented code
 # my $globalVarCommented2
-# old1();
-# sub old1 {
+# old2();
+# sub old2 {
 #     # This old code is no longer used
 #     my $qux;
 #     $globalRunCount++;
@@ -44,8 +48,8 @@ exit 0;
 __END__
 
 my $globalVarCommented2;
-old2();
-sub old2 {
+old3();
+sub old3 {
     # This old code is no longer used
     my $quxx;
     push @globalArray, 'green';

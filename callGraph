@@ -22,7 +22,7 @@ Purpose:
     It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as
     awk, bash, basic, dart, fortran, go, javascript, lua, kotlin, matlab, pascal, php, R, raku, ruby, rust,
-      swift, and typescript.
+      scala, swift, and typescript.
     C/C++/Java are not supported, since their complicated syntax requires heavy machinery.
         For these languages, consider using Doxygen or kcachegrind or Intel Single Event API or Eclipse instead.
 
@@ -260,8 +260,9 @@ sub defineSyntax {
             r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
             rb    => '(\s*)(def)\s+(\w+)',
             rs    => '(\s*)(?:pub\s+)?(fn)\s+(\w+)',
+            sc    => '(\s*)(?:private\s+|protected\s+)?(def)\s+(\w+)',
             sh    => '(\s*)(function\b|)\s*(\w+)\(?\)?\s*{',
-            swift   => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
+            swift => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
             tcl   => '(\s*)(proc)\s+([\w:]+)',
             ts    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
             # C, C++, and Java syntaxes are not well suited for regexes
@@ -302,6 +303,7 @@ sub defineSyntax {
             r     => '\s*}',
             rb    => '\s*end',
             rs    => '\s*}',
+            sc    => '\s*}',
             sh    => '\s*}',
             swift => '\s*}',
             tcl   => '\s*}',
@@ -327,6 +329,7 @@ sub defineSyntax {
             r     => '(\w+)\s*\(',
             rb    => '(\w+)\s*',
             rs    => '(\w+)\s*\(',
+            sc    => '(\w+)',
             sh    => '(\w+)',
             swift => '(\w+)\s*\(',
             tcl   => '(?<![\$])(\w+)\s*',
@@ -353,6 +356,7 @@ sub defineSyntax {
             r     => '#',
             rb    => '#',
             rs    => '//',
+            sc    => '//',                         # doesn't handle multiline comments
             sh    => '#',
             swift => '//',                         # doesn't handle multiline comments
             tcl   => ';?\s*#',                     # remove comments and superfluous ';'
@@ -379,6 +383,7 @@ sub defineSyntax {
             r     => '(\w+)',
             rb    => '(\w+)',
             rs    => '(\w+)',
+            sc    => '(\w+)',
             sh    => '(\w+)',
             swift => '(\w+)',
             tcl   => '(\w+)',              # set foo $bar  <- one of the variables does not have a '$'
@@ -880,7 +885,7 @@ if ( $opt{verbose} ) {
             }
         }
         for my $line ( split /\n/, $funcContents->{$sub}{$file} ) {
-            if ( $line =~ /(\w+\.(awk|m|js|php|pl|py|r|rb|sh|tcl)\b)/ ) {
+            if ( $line =~ /(\w+\.(awk|m|js|php|pl|py|r|rb|sc|sh|tcl)\b)/ ) {
                 my $script = $1;
                 if ( basename($file) ne $script ) {
                     $sub_info{$file}{$sub}{scriptsCalled}{$script}++;
@@ -967,6 +972,38 @@ if ( $opt{verbose} ) {
             }
         }
     }
+
+    # TODO - list functions not shown in graph, need to test this, this will make regressions fail
+    # ### put the logic to detect these earlier, and then print then based on file/sub  (not sub/file)
+    if (0) {
+        say "\nFunctions which are not called by any function, and do not call other functions:";
+        for my $func ( sort keys %{$funcContents} ) {
+            d '$func';
+            for my $file ( sort keys %{$funcContents->{$func}} ) {
+                d '$file';
+                # %sub_info{$file}{$func} is derived from $graph->{node}
+                # $funcContents->{$func}{$file};
+                if ( defined $sub_info{$file}{$func} ) {
+                    # do nothing
+                } elsif ( defined $opt{ignore} and $func =~ /$opt{ignore}/ ) {
+                    # do nothing
+                } elsif ( $language eq 'pl' and $func eq 'say' ) {
+                    # do nothing
+                } else {
+                    $sub_info{$file}{$func}{notConnected}++;
+                }
+            }
+        }
+        d '%sub_info';
+        for my $file ( sort keys %sub_info ) {
+            say "    " . basename($file) if @files > 1;
+            for my $func ( sort keys %{ $sub_info{$file} } ) {
+                say "        $func" if $sub_info{$file}{$func}{notConnected};
+            }
+        }
+        say "";
+    }
+    
     # Find external scripts referenced in each function
     if (  $externalScriptCallsFound ) {
         say "\nExternal scripts referenced in each function:";
@@ -1072,7 +1109,7 @@ sub getScriptType {
     my $file = $options{file};
     $file =~ s/#.*//;    # Remove p4 rev number
     my $filetype;
-    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sh|swift|tcl|ts)$/i ) {
+    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sc|sh|swift|tcl|ts)$/i ) {
         $filetype = lc($1);
         return $filetype;
     } elsif ( $file =~ /\.basic$/ ) {
@@ -1081,12 +1118,16 @@ sub getScriptType {
         return 'cpp';
     } elsif ( $file =~ /\.(f\d+|fypp|fortran)$/ ) {
         return 'for';
+    } elsif ( $file =~ /\.(gy|gvy|groovy)$/ ) {
+        return 'java';
     } elsif ( $file =~ /\.p6$/ ) {
         return 'pl';
     } elsif ( $file =~ /\.pm$/ ) {
         return 'pl';
     } elsif ( $file =~ /\.raku(mod)?$/ ) {
         return 'pl';
+    } elsif ( $file =~ /\.scala$/ ) {
+        return 'sc';
     } elsif ( $file =~ /\.tn$/ ) {
         return 'tcl';
     } elsif ( $file =~ /\.vb$/ ) {
@@ -1240,7 +1281,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v23 Tue May  4 12:44:34 PDT 2021
+v24 Fri May 14 12:01:37 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
