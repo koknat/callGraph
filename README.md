@@ -6,7 +6,7 @@ In the diagram below, the main program is represented by node MAIN.  It calls 6 
 callGraph statically generates a call graph image and displays it on screen.<br>
 Supported languages are: awk, bash, basic, dart, fortran, go, lua, javascript, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
 <br>
-c/c++/java are not supported, since their complicated syntax requires heavy machinery.<br>
+c/c++/java are not supported, since their complex and varied syntax requires heavy machinery.<br>
 
 !["Sample output"](callGraph.png)
 
