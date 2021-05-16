@@ -7,7 +7,6 @@ callGraph statically generates a call graph image and displays it on screen.<br>
 Supported languages are: awk, bash, basic, dart, fortran, go, lua, javascript, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
 <br>
 c/c++/java are not supported, since their complicated syntax requires heavy machinery.<br>
-For these languages, consider using a purpose-built tool such as Doxygen, kcachegrind, Intel Single Event API, or Eclipse instead.
 
 !["Sample output"](callGraph.png)
 
