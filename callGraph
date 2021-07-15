@@ -24,7 +24,6 @@ Purpose:
     awk, bash, basic, dart, fortran, go, javascript, lua, kotlin, matlab, pascal, php, R, raku, ruby, rust,
       scala, swift, and typescript.
     C/C++/Java are not supported, since their complicated syntax requires heavy machinery.
-        For these languages, consider using Doxygen or kcachegrind or Intel Single Event API or Eclipse instead.
 
 Usage:
     $scriptName  <files>  <options>
@@ -142,6 +141,7 @@ Requirements:
 # Additional caveats:
 #     it is assumed that function names are unique across files
 # Notes:
+#     For C/C++/Java, consider using Doxygen or kcachegrind or Intel Single Event API or Eclipse instead.
 #     For Perl, if you need something more sophisticated, you can run the dynamic profiler NYTProf:
 #         <path_to_perl>/bin/perl -d:NYTProf <script>
 #         <path_to_perl>/bin/nytprofcg
@@ -151,9 +151,9 @@ Requirements:
 #     If the resulting png size is too big, use ImageMagick:
 #         convert foo.png -resize 1000 foo-small.png
 # Goals:
-#     Works on any Linux system (including Apple), as long as GraphViz is installed
 #     Ease of use:  user performs one step to parse file, create png, display png
-#     Monolithic code for ease of sharing
+#     Works on any Linux system (including Apple), as long as GraphViz is installed
+#     Monolithic code for ease of sharing in 
 
 my %opt;
 my $d;
@@ -265,6 +265,11 @@ sub defineSyntax {
             swift => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
             tcl   => '(\s*)(proc)\s+([\w:]+)',
             ts    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            # function bit [7:0] sum;
+            # function byte mul (...);
+            # task automatic display()
+            # task sum
+            v     => '(\s*)(?:virtual\s+)?(function|task)\s+(?:[^(]+)?\s+(\w+)\s*(?:$|;|\()',
             # C, C++, and Java syntaxes are not well suited for regexes
             #
             # Since java function does not begin with 'function' or similar, require that the opening curly brace is on the same line
@@ -308,6 +313,7 @@ sub defineSyntax {
             swift => '\s*}',
             tcl   => '\s*}',
             ts    => '\s*}',
+            v     => '\s*(endfunction|endtask)',
         },
         functionCall => {
             awk   => '(\w+)\s*\(',
@@ -334,6 +340,7 @@ sub defineSyntax {
             swift => '(\w+)\s*\(',
             tcl   => '(?<![\$])(\w+)\s*',
             ts    => '(\w+)\s*\(',
+            v     => '(\w+)',
         },
         comment => {
             # Comments are removed
@@ -361,6 +368,7 @@ sub defineSyntax {
             swift => '//',                         # doesn't handle multiline comments
             tcl   => ';?\s*#',                     # remove comments and superfluous ';'
             ts    => '//',
+            v     => '//',                         # doesn't handle multiline comments
         },
         variable => {
             # This only affects the global variable searching with -verbose mode
@@ -388,6 +396,7 @@ sub defineSyntax {
             swift => '(\w+)',
             tcl   => '(\w+)',              # set foo $bar  <- one of the variables does not have a '$'
             ts    => '(\w+)',
+            v     => '(\w+)',
         },
     };
     if ( !defined $languageSyntax->{functionDefinition}{$language} ) {
@@ -463,9 +472,9 @@ sub parseFiles {
                 d "Found start of function '$funcName'";
                 if ( $funcName eq '' ) {
                     # TCL proc ::$name dynamic definitions
-                    say "Found dynamically generated proc at line $. of $file.  The call graph will show an empty bubble.";
+                    say "Found dynamically generated proc at line $lineNum of $file.  The call graph will show an empty bubble.";
                 }
-                $funcDefinition->{$funcName}{$file}{line} = $.;
+                $funcDefinition->{$funcName}{$file}{line} = $lineNum;
                 $funcContents->{$funcName}{$file} = "$line\n";
                 if ( $language eq 'py' ) {
                     # Python does not mark the end of functions.  Can't support the parsing of nested functions
@@ -719,21 +728,23 @@ if ( $opt{regression} ) {
     print Data::Dumper->Dump( [ $funcDefinition, $funcCall, $call_graph ], [qw(funcDefinition funcCall call_graph)] );
 }
 
-if ( !keys %$funcDefinition or !@initial_nodes ) {
+my $numFuncDefinitions = scalar keys %$funcDefinition;
+if ( ! $numFuncDefinitions or !@initial_nodes ) {
     if ( defined $opt{start} ) {
         say "\nERROR:  Could not find any functions which match '$opt{start}'\n";
     } else {
-        if ( !keys %$funcDefinition ) {
-            say "\nERROR:  Could not find any function definitions in your file";
+        #say "Function definitions: " . join "\n", sort keys %$funcDefinition if $verbose;
+        if ( $numFuncDefinitions ) {
+            say "\nERROR:  Found $numFuncDefinitions function definitions, but could not find any matching function calls in your file";
         } else {
-            say "\nERROR:  Found function definitions, but could not find any matching function calls in your file";
+            say "\nERROR:  Could not find any function definitions in your file";
         }
         if ( $language !~ /^(tcl|pl|py)$/ ) {
             say "        It is possible that $scriptName is not searching for them correctly in your .$language file";
             say "        It parses one line at a time, using this regular expression for function definitions:";
             say "            ^$languageSyntax->{functionDefinition}{$language}";
             say "        and using this regular expression for function calls:";
-            say "            ^$languageSyntax->{functionCall}{$language}";
+            say "            $languageSyntax->{functionCall}{$language}";
             say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition' and/or 'functionCall',";
             say "          and ensure that the function name is captured in the 3rd group of the definition'\n";
         }
@@ -1109,7 +1120,7 @@ sub getScriptType {
     my $file = $options{file};
     $file =~ s/#.*//;    # Remove p4 rev number
     my $filetype;
-    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sc|sh|swift|tcl|ts)$/i ) {
+    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sc|sh|swift|tcl|ts|v)$/i ) {
         $filetype = lc($1);
         return $filetype;
     } elsif ( $file =~ /\.basic$/ ) {
@@ -1128,6 +1139,8 @@ sub getScriptType {
         return 'pl';
     } elsif ( $file =~ /\.scala$/ ) {
         return 'sc';
+    } elsif ( $file =~ /\.sv$/ ) {
+        return 'v';
     } elsif ( $file =~ /\.tn$/ ) {
         return 'tcl';
     } elsif ( $file =~ /\.vb$/ ) {
@@ -1281,7 +1294,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v24 Fri May 14 12:01:37 PDT 2021
+v26 Thu Jul 15 10:41:58 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
