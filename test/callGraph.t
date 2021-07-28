@@ -60,6 +60,7 @@ my $separator = "\n###\n";
 
 eval 'use GraphViz ()';
 if ($@) {
+    say "\n$@";
     say "ERROR:  Install GraphViz and the CPAN GraphViz module to create the call graph";
     say "        sudo apt-get install graphviz";
     say "        and";
@@ -334,7 +335,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v26 Thu Jul 15 10:41:58 PDT 2021
+v27 Wed Jul 28 10:15:24 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
