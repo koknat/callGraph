@@ -97,7 +97,7 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
             and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
         
     Acknowlegements:
-        This code utilizes core functionality from https://github.com/cobber/perl_call_graph
+        This code borrows core functionality from https://github.com/cobber/perl_call_graph
 
     Requirements:
         GraphViz and the Perl GraphViz library must be installed:
