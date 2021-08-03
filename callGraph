@@ -119,11 +119,12 @@ Algorithm:
     ";
     $usage .= "
 Acknowlegements:
-    This code utilizes core functionality from https://github.com/cobber/perl_call_graph
+    This code borrows core functionality from https://github.com/cobber/perl_call_graph
 
 Requirements:
     GraphViz and the Perl GraphViz library must be installed:
-        sudo apt-get install graphviz
+        sudo apt install graphviz
+        sudo apt install make
         sudo cpan install GraphViz
         \n" if !-d '/home/ckoknat';
     say "\n$usage\n";
@@ -210,7 +211,9 @@ eval 'use GraphViz ()';
 if ($@) {
     say "\n$@";
     say "ERROR:  Install GraphViz and the CPAN GraphViz module to create the call graph";
-    say "        sudo apt-get install Graphviz";
+    say "        sudo apt install graphviz";
+    say "        and";
+    say "        sudo apt install make";
     say "        and";
     say "        sudo cpan install GraphViz";
     exit 1;
@@ -248,7 +251,7 @@ sub defineSyntax {
             awk   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
             bas   => '(\s*)(?:public\s+)?(function|sub)\s+(\w+)\s*\(.*\)',
             dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(.*\)\s*{',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
-            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|subroutine)\s+(\w+)\s*\(.*\)',  # fortran .fypp is problematic because of preprocessor
+            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(.*\)',  # fortran .fypp is problematic because of preprocessor
             go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
             js    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
             kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(.*\)',
@@ -295,7 +298,7 @@ sub defineSyntax {
             c     => '\s*}',
             cpp   => '\s*}',
             dart  => '\s*}',
-            for   => '\s*(function|subroutine) end',
+            for   => '\s*(function|program|subroutine) end',
             go    => '\s*}',
             java  => '\s*}',
             js    => '\s*}',
@@ -1069,7 +1072,7 @@ if ( $output =~ /\.dot$/ ) {
             say "        Try running on a RedHat/CentOS 5 or 6 machine, such as sc-xterm-60\n";
         } else {
             say "        Run this to proceed:";
-            say "            sudo apt-get install graphviz\n";
+            say "            sudo apt install graphviz\n";
         }
         exit 1;
     }
@@ -1295,7 +1298,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v27 Wed Jul 28 10:15:24 PDT 2021
+v28 Mon Aug  2 17:46:00 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
