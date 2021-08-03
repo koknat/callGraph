@@ -101,5 +101,6 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
 
     Requirements:
         GraphViz and the Perl GraphViz library must be installed:
-            sudo apt-get install graphviz
+            sudo apt install graphviz
+            sudo apt install make
             sudo cpan install GraphViz
