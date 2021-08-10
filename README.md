@@ -44,9 +44,14 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
         -fullPath                  By default, the script strips off the path name of the input file(s).
                                    This option prevents that behavior.
 
-        -writeSubsetCode <file>    Create an output source file which includes only the subroutines
+        -writeSubsetCode <file>    Create an output source code file which includes only the functions
                                      included in the graph.
-                                   This can be useful when trying to comprehend a large set of legacy code.
+                                   This can be useful when trying to comprehend a large legacy code.
+    
+        -ymlOut <file>             Create an output YAML file which describes the following for each function:
+                                       * which functions call it
+                                       * which functions it calls
+                                   This can be useful to create your own automation or custom formatting
 
         -verbose                   Provides 2 additional functionalities:
                                
