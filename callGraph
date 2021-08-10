@@ -64,9 +64,14 @@ Options:
     -fullPath                  By default, the script strips off the path name of the input file(s).
                                This option prevents that behavior.
 
-    -writeSubsetCode <file>    Create an output source file which includes only the subroutines
+    -writeSubsetCode <file>    Create an output source code file which includes only the functions
                                  included in the graph.
-                               This can be useful when trying to comprehend a large set of legacy code.
+                               This can be useful when trying to comprehend a large legacy code.
+
+    -ymlOut <file>             Create an output YAML file which describes the following for each function:
+                                   * which functions call it
+                                   * which functions it calls
+                               This can be useful to create your own automation or custom formatting
 
     -verbose                   Provides 2 additional functionalities:
                                
@@ -172,6 +177,7 @@ Getopt::Long::GetOptions(
     'noShow',
     'obfuscate',
     'writeSubsetCode=s',
+    'ymlOut=s',
     'writeFunctions',
     'd' => sub { $d = 1 },
 ) or usage();
@@ -637,16 +643,16 @@ for my $caller_sub ( keys %{$funcCall} ) {
             next if ( defined $opt{ignore} and $referenced_sub =~ /$opt{ignore}/ );
 
             if ( exists $funcDefinition->{$referenced_sub}{$caller_file} ) {
-                $call_graph->{"$caller_file:$caller_sub"}{invokes}{"$caller_file:$referenced_sub"}++;
-                $call_graph->{"$caller_file:$referenced_sub"}{invoked_by}{"$caller_file:$caller_sub"}++;
+                $call_graph->{"$caller_file:$caller_sub"}{calls}{"$caller_file:$referenced_sub"}++;
+                $call_graph->{"$caller_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
                 next;
             }
             my (@matching_definitions) = sort keys %{ $funcDefinition->{$referenced_sub} };
 
             if ( @matching_definitions == 1 ) {
                 my $referenced_file = shift @matching_definitions;
-                $call_graph->{"$caller_file:$caller_sub"}{invokes}{"$referenced_file:$referenced_sub"}++;
-                $call_graph->{"$referenced_file:$referenced_sub"}{invoked_by}{"$caller_file:$caller_sub"}++;
+                $call_graph->{"$caller_file:$caller_sub"}{calls}{"$referenced_file:$referenced_sub"}++;
+                $call_graph->{"$referenced_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
             } else {
                 # say( "AMBIGUOUS: $caller_file:$caller_sub() -> $referenced_sub() defined in @matching_definitions" );
             }
@@ -654,6 +660,19 @@ for my $caller_sub ( keys %{$funcCall} ) {
     }
 }
 d '$call_graph';
+
+if ( $opt{ymlOut} ) {
+    eval 'use YAML::XS ()';
+    if ($@) {
+        say "\n$@\n";
+        say "ERROR:  Install YAML::XS to use option -ymlOut";
+        say "        sudo cpan install YAML::XS";
+        exit 1;
+    } else {
+        say "Creating file $opt{ymlOut}";
+        YAML::XS::DumpFile($opt{ymlOut}, $call_graph);
+    }
+}
 
 if ( $opt{obfuscate} ) {
     my %cache;
@@ -673,11 +692,11 @@ if ( $opt{obfuscate} ) {
         for my $from_file_sub ( keys %{ $in } ) {
             my ( $from_file, $from_sub ) = split( /:/, $from_file_sub );
             my $from_sub_new = transformVerbs($from_sub, $options);
-            for my $invokes_or_by ( keys %{ $in->{$from_file_sub} } ) {
-                for my $to_file_sub ( keys %{ $in->{$from_file_sub}{$invokes_or_by} } ) {
+            for my $calls_or_called_by ( keys %{ $in->{$from_file_sub} } ) {
+                for my $to_file_sub ( keys %{ $in->{$from_file_sub}{$calls_or_called_by} } ) {
                     my ( $to_file, $to_sub ) = split( /:/, $to_file_sub );
                     my $to_sub_new = transformVerbs($to_sub, $options);
-                    $new->{"$from_file:$from_sub_new"}{$invokes_or_by}{"$to_file:$to_sub_new"} = $in->{"$from_file:$from_sub"}{$invokes_or_by}{"$to_file:$to_sub"};
+                    $new->{"$from_file:$from_sub_new"}{$calls_or_called_by}{"$to_file:$to_sub_new"} = $in->{"$from_file:$from_sub"}{$calls_or_called_by}{"$to_file:$to_sub"};
                 }
             }
         }
@@ -722,7 +741,7 @@ if ( defined $opt{start} ) {
 } else {
     for my $file_sub ( sort keys %{$call_graph} ) {
         my ( $file, $sub ) = split( /:/, $file_sub );
-        unless ( $call_graph->{$file_sub}{invoked_by} ) {
+        unless ( $call_graph->{$file_sub}{called_by} ) {
             push( @initial_nodes, $file_sub );
         }
     }
@@ -1221,14 +1240,14 @@ sub plot {
     }
 
     if ( $direction =~ /up/ ) {
-        for my $parent_file_sub ( sort keys %{ $self->{'call_graph'}{$from_file_sub}{'invoked_by'} } ) {
+        for my $parent_file_sub ( sort keys %{ $self->{'call_graph'}{$from_file_sub}{'called_by'} } ) {
             $self->{'edge'}{$parent_file_sub}{$from_file_sub}++;
             $self->plot( $parent_file_sub, 'up' ) unless $self->{'node'}{$parent_file_sub}++;
         }
     }
 
     if ( $direction =~ /down/ ) {
-        for my $to_file_sub ( sort keys %{ $self->{'call_graph'}{$from_file_sub}{'invokes'} } ) {
+        for my $to_file_sub ( sort keys %{ $self->{'call_graph'}{$from_file_sub}{'calls'} } ) {
             $self->{'edge'}{$from_file_sub}{$to_file_sub}++;
             $self->plot( $to_file_sub, 'down' ) unless $self->{'node'}{$to_file_sub}++;
         }
@@ -1298,7 +1317,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v28 Mon Aug  2 18:41:40 PDT 2021
+v29 Tue Aug 10 12:28:21 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
