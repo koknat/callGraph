@@ -253,28 +253,38 @@ sub defineSyntax {
     my $languageSyntax = {
         # http://rigaux.org/language-study/syntax-across-languages.html
         # To add support for another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
+        # Note that sometimes functions span lines, such as:
+        #     function foo (a, 
+        #         b, c, 
+        #         d)
+        #     Since the parser uses a simple line-by-line algorithm, it's helpful to only require the first parenthesis
         functionDefinition => {
-            awk   => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-            bas   => '(\s*)(?:public\s+)?(function|sub)\s+(\w+)\s*\(.*\)',
-            dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(.*\)\s*{',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
-            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(.*\)',  # fortran .fypp is problematic because of preprocessor
+            awk   => '(\s*)(function)\s+(\w+)\s*\(',
+            bas   => '(\s*)(?:public\s+)?(function|sub)\s+(\w+)\s*\(',
+            dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
+            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(',  # fortran .fypp is problematic because of preprocessor
             go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
-            js    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
-            kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(.*\)',
-            lua   => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(.*\)',
-            m     => '(\s*)(function).*=\s*(\w+)\s*\(.*\)',                                                                                            # matlab
-            pas   => '(\s*)(function|procedure)\s+(\w+)\s*\(.*\)',
-            php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(.*\)',
+            js    => '(\s*)(function)\s+(\w+)\s*\(',
+            kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(',
+            lua   => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(',
+            m     => '(\s*)(function).*=\s*(\w+)\s*\(',                                                                                            # matlab
+            pas   => '(\s*)(function|procedure)\s+(\w+)\s*\(',
+            php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(',
             pl    => '(\s*)(sub)\s+(\w+)',
-            py    => '(\s*)(def)\s+(\w+)\(.*\):',
-            r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',
+            py    => '(\s*)(def)\s+(\w+)\(',
+            #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',  # original
+            #r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(.*\)',
+            #r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\([^\)]*\)',
+            #r     => '(\s*)()(\w+)\s+<-\s+function\s*\([^\)]*\)',
+            #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(',
+             r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(',
             rb    => '(\s*)(def)\s+(\w+)',
             rs    => '(\s*)(?:pub\s+)?(fn)\s+(\w+)',
             sc    => '(\s*)(?:private\s+|protected\s+)?(def)\s+(\w+)',
             sh    => '(\s*)(function\b|)\s*(\w+)\(?\)?\s*{',
             swift => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
             tcl   => '(\s*)(proc)\s+([\w:]+)',
-            ts    => '(\s*)(function)\s+(\w+)\s*\(.*\)',
+            ts    => '(\s*)(function)\s+(\w+)\s*\(',
             # function bit [7:0] sum;
             # function byte mul (...);
             # task automatic display()
@@ -285,18 +295,18 @@ sub defineSyntax {
             # Since java function does not begin with 'function' or similar, require that the opening curly brace is on the same line
             #         spaces         public static                                                                         void                foo
             #java => '^()((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*\{\s*$',
-            java => '(\s*)(?=public|private|protected|static|final|native|synchronized|abstract|transient)([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+            java => '(\s*)(?=public|private|protected|static|final|native|synchronized|abstract|transient)([^(]+)\s+(\S+)\s*\(',
             # cpp regex will be somewhat similar to java, but a lot more complicated.  I'm not pursuing this
             # To create a cpp call graph:
             #     clang++ -S -emit-llvm main.cpp -o - | opt -analyze -dot-callgraph
             #     dot -Tpng -ocallgraph.png callgraph.dot
             #cpp  => '^(\s*)((?:(?:public|private|protected|static|final|native|synchronized|abstract|transient)+\s+)*(?:[$_\w<>\[\]\s]+))*?\s+(\S+)\s*\(.*\)\s*(\{)\s*$',
-            cpp => '(\s*)(?=.*(?:void|bool|int|short|long|double|char|size_t|string|vector|unsigned|istream|ostream))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+            cpp => '(\s*)(?=.*(?:void|bool|int|short|long|double|char|size_t|string|vector|unsigned|istream|ostream))([^(]+)\s+(\S+)\s*\(',
             # Attempting to support simple C syntax
             # int main(int argc, char *argv[])
             # int CTclParser::SplitList( int *line, char *list, int *argcPtr, char ***argvPtr )
             #c    => '(\s*)([^(]+)\s+(\S+)\s*\(.*\)',
-            c => '(\s*)(?=.*(?:void|bool|int|short|long|double|char|size_t))([^(]+)\s+(\S+)\s*\(.*\)\s*{',
+            c => '(\s*)(?=.*(?:void|bool|int|short|long|double|char|size_t))([^(]+)\s+(\S+)\s*\(',
         },
         functionEnd => {
             awk   => '\s*}',
@@ -1123,7 +1133,7 @@ if ( $output =~ /\.dot$/ ) {
     #say `ls -l $image`;  # commented because of regressions
     unless ( $opt{noShow} ) {
         # eog is nice because it has zoom in/out
-        my $displayExecutable = whichCommand( 'eog', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
+        my $displayExecutable = whichCommand( 'eog', 'eom', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
         if ( defined $displayExecutable ) {
             $cmd = "$displayExecutable $image";
             d '$cmd';
@@ -1317,7 +1327,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v29 Tue Aug 10 12:28:21 PDT 2021
+v30 Tue Aug 24 13:09:59 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
