@@ -264,10 +264,11 @@ sub defineSyntax {
             dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
             for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(',  # fortran .fypp is problematic because of preprocessor
             go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
+            jl    => '(\s*)(?:@inline\s+)?(function)\s+([\w\.\!\$]+)\s*[^\(]*\(',
             js    => '(\s*)(function)\s+(\w+)\s*\(',
             kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(',
             lua   => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(',
-            m     => '(\s*)(function).*=\s*(\w+)\s*\(',                                                                                            # matlab
+            m     => '(\s*)(function)[^=]*=\s*(\w+)\s*\(',                                                                                            # matlab
             pas   => '(\s*)(function|procedure)\s+(\w+)\s*\(',
             php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(',
             pl    => '(\s*)(sub)\s+(\w+)',
@@ -317,6 +318,7 @@ sub defineSyntax {
             for   => '\s*(function|program|subroutine) end',
             go    => '\s*}',
             java  => '\s*}',
+            jl    => '\s*end',
             js    => '\s*}',
             kt    => '\s*}',
             lua   => '\s*end',
@@ -344,6 +346,7 @@ sub defineSyntax {
             for   => '(\w+)\s*\(',
             go    => '(\w+)\s*\(',
             java  => '(\w+)\s*\(',
+            jl    => '([\w\.\!\$]+)\s*\(',
             js    => '(\w+)\s*\(',
             kt    => '(\w+)\s*\(',
             lua   => '([\w\.]+)\s*\(',
@@ -366,29 +369,30 @@ sub defineSyntax {
             # Comments are removed
             awk   => '#',
             bas   => '^REM\s+',
-            c     => '//',                         # doesn't handle multiline comments
-            cpp   => '//',                         # doesn't handle multiline comments
-            dart  => '//',                         # doesn't handle multiline comments
+            c     => '//',                         # doesn't handle multiline comments /* */
+            cpp   => '//',                         # doesn't handle multiline comments /* */
+            dart  => '//',                         # doesn't handle multiline comments /* */
             for   => '!',
             go    => '//',
-            java  => '//',                         # doesn't handle multiline comments
+            java  => '//',                         # doesn't handle multiline comments /* */
             js    => '//',
             kt    => '//',
             lua   => '--',
+            jl    => '#',                          # doesn't handle multiline comments #= =#
             m     => '%',
             pas   => '(//|\{.*\}|\(\*.*\*\))',
-            php   => '(//|#)',                     # doesn't handle multiline comments
+            php   => '(//|#)',                     # doesn't handle multiline comments /* */
             pl    => '#',                          # unless $line =~ /s#[^#]+#[^#]+#/;
             py    => '#',
             r     => '#',
             rb    => '#',
             rs    => '//',
-            sc    => '//',                         # doesn't handle multiline comments
+            sc    => '//',                         # doesn't handle multiline comments /* */
             sh    => '#',
-            swift => '//',                         # doesn't handle multiline comments
+            swift => '//',                         # doesn't handle multiline comments /* */
             tcl   => ';?\s*#',                     # remove comments and superfluous ';'
             ts    => '//',
-            v     => '//',                         # doesn't handle multiline comments
+            v     => '//',                         # doesn't handle multiline comments /* */
         },
         variable => {
             # This only affects the global variable searching with -verbose mode
@@ -400,6 +404,7 @@ sub defineSyntax {
             for   => '(\w+)',
             go    => '(\w+)',
             java  => '(\w+)',
+            jl    => '(\w+)',
             js    => '(\w+)',
             kt    => '(\w+)',
             lua   => '(\w+)',
@@ -500,14 +505,15 @@ sub parseFiles {
                     # Python does not mark the end of functions.  Can't support the parsing of nested functions
                     @funcName   = ( '__MAIN__', $funcName );
                     @funcSpaces = ( '',         $leadingSpaces );
-                } elsif ( $line =~ /}\s*(;\s*)?(#.*)?$/ ) {
-                    # This function has started and ended on the same line, do not push
+                } elsif ( $line =~ /}\s*(;\s*)?(#.*)?$/ and $language !~ /(jl)/ ) {
+                    d 'function has started and ended on the same line, do not push';
                     # proc d {args} {}
                     # sub say { print @_, "\n" }; # comment
                 } else {
                     push @funcName,   $funcName;
                     push @funcSpaces, $leadingSpaces;
                 }
+                #d '@funcName @funcSpaces';
                 next;
             }
 
@@ -1153,7 +1159,7 @@ sub getScriptType {
     my $file = $options{file};
     $file =~ s/#.*//;    # Remove p4 rev number
     my $filetype;
-    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sc|sh|swift|tcl|ts|v)$/i ) {
+    if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|jl|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sc|sh|swift|tcl|ts|v)$/i ) {
         $filetype = lc($1);
         return $filetype;
     } elsif ( $file =~ /\.basic$/ ) {
@@ -1327,7 +1333,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v30 Tue Aug 24 13:09:59 PDT 2021
+v30 Fri Sep 24 11:17:23 PDT 2021
 
 
 This program is free software; you can redistribute it and/or modify
