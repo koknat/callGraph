@@ -4,6 +4,7 @@ use warnings;
 use strict;
 use Data::Dumper;
 use File::Basename qw(basename dirname);
+use File::Find;
 use File::Temp qw(tempdir);
 use Getopt::Long;
 use POSIX qw( strftime );
@@ -21,8 +22,8 @@ Purpose:
     $scriptName is a multi-language tool to statically parse source code for function definitions and calls.
     It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as
-    awk, bash, basic, dart, fortran, go, javascript, lua, kotlin, matlab, pascal, php, R, raku, ruby, rust,
-      scala, swift, and typescript.
+    awk, bash, basic, dart, fortran, go, javascript, julia, lua, kotlin, matlab, pascal, php, R, raku, 
+      ruby, rust, scala, swift, and typescript.
     C/C++/Java are not supported, since their complicated syntax requires heavy machinery.
 
 Usage:
@@ -35,7 +36,8 @@ Usage:
 Options:
     -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc.
                                If those are not found, the first line of the script (#! shebang) is inspected.
-                               If neither of those give clues, use this option to specify pl, tcl, py, etc
+                               If neither of those give clues, use this option to specify 'pl', 'tcl', 'py', etc
+							   This option is required if a directory is scanned
 
     -start <function>          Specify function(s) as starting point instead of the main code.
                                These are displayed in green.
@@ -72,6 +74,8 @@ Options:
                                    * which functions call it
                                    * which functions it calls
                                This can be useful to create your own automation or custom formatting
+							   
+	-ymlIn <file>              Use your intermediate file instead of parsing source files
 
     -verbose                   Provides 2 additional functionalities:
                                
@@ -93,8 +97,7 @@ Options:
 Usage examples:
     $scriptName  example.pl example_helper_lib.pm
     $scriptName  example.py
-    $scriptName  example.tcl
-    $scriptName  example.tcl -verbose
+    $scriptName  <directory> -language 'go'
 
 Algorithm:
     $scriptName uses a simple line-by-line algorithm, using regexes to find function definitions and calls.
@@ -102,7 +105,7 @@ Algorithm:
         'sub', 'def', 'proc', 'function', 'func', 'fun', or 'fn'
     Function definitions end with '}' or 'end' at the same nesting level as the definition.
     Function calls are a bit more tricky, since built-in function calls look exactly like user function calls.
-        To solve this, the algorithm first assumes that anything matching 'word()' is a function call,
+        To solve this, the algorithm first assumes that anything matching 'word(...)' is a function call,
         and then discards any calls which do not have corresponding definitions.
     For example, Perl:
         sub funcA {
@@ -157,9 +160,9 @@ Requirements:
 #     If the resulting png size is too big, use ImageMagick:
 #         convert foo.png -resize 1000 foo-small.png
 # Goals:
-#     Ease of use:  user performs one step to parse file, create png, display png
+#     Ease of use:  user runs one command to parse file, create png, display png
 #     Works on any Linux system (including Apple), as long as GraphViz is installed
-#     Monolithic code for ease of sharing in 
+#     Monolithic code for ease of sharing
 
 my %opt;
 my $d;
@@ -177,11 +180,12 @@ Getopt::Long::GetOptions(
     'noShow',
     'obfuscate',
     'writeSubsetCode=s',
+	'ymlIn=s',
     'ymlOut=s',
     'writeFunctions',
     'd' => sub { $d = 1 },
 ) or usage();
-usage() if $opt{help} or !@ARGV;
+usage() if $opt{help} or ( ! @ARGV and ! defined $opt{ymlIn} );
 
 # Debugger from CPAN: "sudo cpan" "install Debug::Statements"
 sub D  { say "Debug::Statements has been disabled" }
@@ -191,28 +195,6 @@ sub ls { }
 #use Debug::Statements ":all";    # d ''
 
 d '%opt';
-my @files = @ARGV;
-for my $file (@ARGV) {
-    die "\nERROR:  $file not found!\n" if !-r $file;
-}
-my ($tmpdir, $output);
-if ( defined $opt{output} ) {
-    $output = $opt{output};
-    if ( -f $output ) {
-        die "\nERROR:  $output is not writeable\n" if !-w $output;
-    } else {
-        die "\nERROR:  directory is not writeable\n" if !-w dirname($output);
-    }
-} else {
-    if ( -w '.' ) {
-        #$output = './' . basename( $ARGV[0] );
-        $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
-        $output = "$tmpdir/" . basename( $ARGV[0] );
-    } else {
-        $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
-        $output = "$tmpdir/" . basename( $ARGV[0] );
-    }
-}
 eval 'use GraphViz ()';
 if ($@) {
     say "\n$@";
@@ -224,21 +206,104 @@ if ($@) {
     say "        sudo cpan install GraphViz";
     exit 1;
 }
-if ( -d $output ) {
-    # TODO test -output <directory>
-    # If a directory name is given in -output (or no -output), create a name based on timestamp
-    my $base_name = 'call_graph_';
-    if ( $opt{start} ) {
-        $base_name .= $opt{start};
-        $base_name =~ s/\\.//g;
-        $base_name =~ s/[^-\w]//g;
+my (@files, $tmpdir, $output);
+if ( defined $opt{ymlIn} ) {
+    if ( defined $opt{output} ) {
+        $output = $opt{output};
     } else {
-        $base_name .= strftime( "%Y%m%d-%H%M%S", localtime() );
+        ($output = $opt{ymlIn}) =~ s/\.ya?ml$//;
     }
-    $output =~ s{/*$}{/$base_name};
+} else {
+    if ( -d $ARGV[0] ) {
+        die "\nERROR:  Must specify -language <language>\n" if ! defined $opt{language};
+        my $language = $opt{language};
+        $language = 'pl|.pm' if $language eq 'pl';
+        for my $dir ( @ARGV ) {
+            if ( -d $dir ) {
+                find( sub {
+                        return if -d $File::Find::name;
+                        return unless $File::Find::name =~ /(\.$language)$/;
+                        push @files, $File::Find::name;
+                    }, $dir);
+                if ( ! @files ) {
+                    die "\nERROR:  Did not find any $language files in $dir/\n";
+                }
+            } else {
+                push @files, $dir;
+            }
+        }
+    } else {
+        @files = @ARGV;
+    }
+    d '@files';
+    for my $file (@ARGV) {
+        die "\nERROR:  $file not found!\n" if !-r $file;
+    }
+    if ( defined $opt{output} ) {
+        $output = $opt{output};
+        if ( -f $output ) {
+            die "\nERROR:  $output is not writeable\n" if !-w $output;
+        } else {
+            die "\nERROR:  directory is not writeable\n" if !-w dirname($output);
+        }
+    } else {
+        if ( -w '.' ) {
+            #$output = './' . basename( $ARGV[0] );
+            $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
+            $output = "$tmpdir/" . basename( $ARGV[0] );
+        } else {
+            $tmpdir = tempdir( '/tmp/call_graph_XXXX', CLEANUP => 0 );
+            $output = "$tmpdir/" . basename( $ARGV[0] );
+        }
+    }
+    if ( -d $output ) {
+        # TODO test -output <directory>
+        # If a directory name is given in -output (or no -output), create a name based on timestamp
+        my $base_name = 'call_graph_';
+        if ( $opt{start} ) {
+            $base_name .= $opt{start};
+            $base_name =~ s/\\.//g;
+            $base_name =~ s/[^-\w]//g;
+        } else {
+            $base_name .= strftime( "%Y%m%d-%H%M%S", localtime() );
+        }
+        $output =~ s{/*$}{/$base_name};
+    }
 }
 ( my $dot = $output ) =~ s/\.(dot|png|svg)$//;
 $dot .= '.dot';
+
+my $call_graph;
+if ( $opt{ymlIn} ) {
+    eval 'use YAML::XS ()';
+    if ($@) {
+        say "\n$@\n";
+        say "ERROR:  Install YAML::XS to use option -ymlIn";
+        say "        sudo cpan install YAML::XS";
+        exit 1;
+    } else {
+        say "Reading file $opt{ymlIn}";
+        $call_graph = YAML::XS::LoadFile($opt{ymlIn});
+        # Sanity check
+        my ($calls, $called_by);
+        for my $sub ( keys %{$call_graph} ) {
+            # $call_graph->{"$caller_file:$caller_sub"}{calls}{"$caller_file:$referenced_sub"}++;
+            # $call_graph->{"$caller_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
+            for my $item ( keys %{$call_graph->{$sub}} ) {
+                $calls++ if $item eq 'calls';
+                $called_by++ if $item eq 'called_by';
+            }
+        }
+        d '$call_graph $calls $called_by';
+        if ( ! $calls ) {
+            die "\nERROR:  input yml does not contain any 'calls' items!\n        The format should be similar to the one created by -ymlOut <file>\n";
+        }
+        if ( ! $called_by ) {
+            die "\nERROR:  input yml does not contain any 'called_by' items!\n        The format should be similar to the one created by -ymlOut <file>\n";
+        }
+    }
+	goto INTERMEDIATE_FORMAT;
+}
 
 # Determine language
 die "\nERROR:  No input files specified!\n" unless @ARGV;
@@ -573,11 +638,14 @@ d '$funcCall';                                  # $funcCall->{$funcName}{$file}{
 # Experimental feature -writeFunctions
 # Optionally create an output source file for each function in the source file(s)
 if ( 1 and $opt{writeFunctions} ) {
+	writeFunctions();
+}
+sub writeFunctions {
     my %options;
     #$options{destDir} = "/tmp/foo";
     #$options{removeComments} = 1;
     #$options{grep} = 'get_name';
-    $options{grep} = 'global';
+    #$options{grep} = 'global';
     $options{sort} = 1;
     say "\n### Grepping for $options{grep} ###"; # TODO remove this
     #$options{reverse} = 1;
@@ -615,6 +683,7 @@ if ( 1 and $opt{writeFunctions} ) {
             }
         }
     }
+    #exit 0;
     if ( defined $options{grep} ) {
         my $format;
         if ( scalar keys %matched == 1 ) {
@@ -650,7 +719,6 @@ if ( 1 and $opt{writeFunctions} ) {
 # first:    try to find a match within the same file.
 # second:   see if the function is defined in ONE other file
 # third:    complain about an ambiguous call if the callee has multiple definitions
-my $call_graph;
 for my $caller_sub ( keys %{$funcCall} ) {
     next if ( defined $opt{ignore} and $caller_sub =~ /$opt{ignore}/ );
     for my $caller_file ( keys %{ $funcCall->{$caller_sub} } ) {
@@ -677,6 +745,7 @@ for my $caller_sub ( keys %{$funcCall} ) {
 }
 d '$call_graph';
 
+INTERMEDIATE_FORMAT:
 if ( $opt{ymlOut} ) {
     eval 'use YAML::XS ()';
     if ($@) {
@@ -692,8 +761,13 @@ if ( $opt{ymlOut} ) {
 
 if ( $opt{obfuscate} ) {
     my %cache;
-    #$call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => { __MAIN__ => 1 }, jargon => [ qw( aerate amplify approximate assemble benchmark calculate compile compress decode defrag delete download emulate encapsulate encode enhance exaggerate grep hypothesize infer inspect interpolate multiplex mutate obfuscate predict process procrastinate profile prune refactor rewind smite spawn swizzle transform translate)]});
-    $call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => [ qw( __MAIN__ ) ], jargon => [ qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instatiate interpolate ionize irraditate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize saute scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal squeeze steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell )]});
+    #my @gibberish = qw(aerate amplify approximate assemble benchmark calculate compile compress decode defrag delete download emulate encapsulate encode enhance exaggerate grep hypothesize infer inspect interpolate multiplex mutate obfuscate predict process procrastinate profile prune refactor rewind smite spawn swizzle transform translate);
+	my @gibberish = qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate gerrymander grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instatiate interpolate ionize irraditate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize saute scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal squeeze steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell );
+	if ( defined $ENV{SEED} ) {
+        # Should be an integer
+        srand($ENV{SEED})
+    }
+    $call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => [ qw( __MAIN__ ) ], jargon => \@gibberish });
     sub renameFunctions {
         my ($in, $options) = @_;
         my $new;
@@ -767,28 +841,30 @@ if ( $opt{regression} ) {
     print Data::Dumper->Dump( [ $funcDefinition, $funcCall, $call_graph ], [qw(funcDefinition funcCall call_graph)] );
 }
 
-my $numFuncDefinitions = scalar keys %$funcDefinition;
-if ( ! $numFuncDefinitions or !@initial_nodes ) {
-    if ( defined $opt{start} ) {
-        say "\nERROR:  Could not find any functions which match '$opt{start}'\n";
-    } else {
-        #say "Function definitions: " . join "\n", sort keys %$funcDefinition if $verbose;
-        if ( $numFuncDefinitions ) {
-            say "\nERROR:  Found $numFuncDefinitions function definitions, but could not find any matching function calls in your file";
+unless ( $opt{ymlIn} ) {
+    my $numFuncDefinitions = scalar keys %$funcDefinition;
+    if ( ! $numFuncDefinitions or !@initial_nodes ) {
+        if ( defined $opt{start} ) {
+            say "\nERROR:  Could not find any functions which match '$opt{start}'\n";
         } else {
-            say "\nERROR:  Could not find any function definitions in your file";
+            #say "Function definitions: " . join "\n", sort keys %$funcDefinition if $verbose;
+            if ( $numFuncDefinitions ) {
+                say "\nERROR:  Found $numFuncDefinitions function definitions, but could not find any matching function calls in your file";
+            } else {
+                say "\nERROR:  Could not find any function definitions in your file";
+            }
+            if ( $language !~ /^(tcl|pl|py)$/ ) {
+                say "        It is possible that $scriptName is not searching for them correctly in your .$language file";
+                say "        It parses one line at a time, using this regular expression for function definitions:";
+                say "            ^$languageSyntax->{functionDefinition}{$language}";
+                say "        and using this regular expression for function calls:";
+                say "            $languageSyntax->{functionCall}{$language}";
+                say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition' and/or 'functionCall',";
+                say "          and ensure that the function name is captured in the 3rd group of the definition'\n";
+            }
         }
-        if ( $language !~ /^(tcl|pl|py)$/ ) {
-            say "        It is possible that $scriptName is not searching for them correctly in your .$language file";
-            say "        It parses one line at a time, using this regular expression for function definitions:";
-            say "            ^$languageSyntax->{functionDefinition}{$language}";
-            say "        and using this regular expression for function calls:";
-            say "            $languageSyntax->{functionCall}{$language}";
-            say "        To enhance the regular expression, edit the code which defines the 'languageSyntax' for 'functionDefinition' and/or 'functionCall',";
-            say "          and ensure that the function name is captured in the 3rd group of the definition'\n";
-        }
+        exit 1;
     }
-    exit 1;
 }
 
 # Produce the graph
@@ -817,7 +893,9 @@ d '$graph->{node}';
 #             Any variables defined in __MAIN__ are globals
 #         TCL:
 #             parses 'global' statements and global $::foo variables
-if ( $opt{verbose} ) {
+if ( $opt{ymlIn} ) {
+    # do nothing
+} elsif ( $opt{verbose} ) {
     d 'verbose';
     my %sub_info;
     my $perl_my_var_found;
@@ -1232,7 +1310,8 @@ sub whichCommand {
 
 package graph;
 # Debugger from CPAN
-#sub D  { say "Debug::Statements has been disabled" }
+sub say { print @_, "\n" }
+sub D  { say "Debug::Statements has been disabled" }
 sub d  { }
 sub ls { }
 #use lib "/home/ate/scripts/regression";
@@ -1333,7 +1412,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v30 Fri Sep 24 11:17:23 PDT 2021
+v32 Tue Jan  4 15:44:18 PST 2022
 
 
 This program is free software; you can redistribute it and/or modify

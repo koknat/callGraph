@@ -1,0 +1,20 @@
+digraph test {
+	graph [rankdir=LR, ratio="0.7", concentrate=true];
+	node [label="\N", shape=Mrecord];
+	graph [bb="0,0,558,390.6"];
+	node1 [label="example.pl\n__MAIN__", color="/greens3/3", fillcolor="/greens3/2", style=filled, pos="40,310.79", width="1.1111", height="0.65278"];
+	node2 [label="example.pl\nbar", pos="303,241.79", width="1.0556", height="0.65278"];
+	node3 [label="example.pl\nbaz", pos="485,343.79", width="1.0556", height="0.65278"];
+	node4 [label="example.pl\nfoo", pos="155,241.79", width="1.0556", height="0.65278"];
+	node5 [label="example_helper_lib.pm\nabc", pos="303,111.79", width="2.0278", height="0.65278"];
+	node6 [label="example_helper_lib.pm\ndef", pos="485,176.79", width="2.0278", height="0.65278"];
+	node7 [label="example_helper_lib.pm\nghi", pos="485,46.791", width="2.0278", height="0.65278"];
+	node1 -> node3 [pos="e,446.41,340.93 80.276,313.78 162.18,319.85 347.89,333.62 436.37,340.18"];
+	node1 -> node4 [pos="e,116.29,265.01 78.613,287.62 87.905,282.05 97.938,276.03 107.58,270.24"];
+	node2 -> node2 [pos="e,330.51,264.97 275.49,264.97 273.6,274.62 282.77,282.79 303,282.79 315.65,282.79 323.97,279.6 327.97,274.85"];
+	node2 -> node3 [pos="e,446.46,322.19 341.6,263.42 369.59,279.11 407.61,300.42 437.47,317.15"];
+	node4 -> node2 [pos="e,264.37,241.79 193.89,241.79 212.32,241.79 234.55,241.79 254.12,241.79"];
+	node4 -> node5 [pos="e,276.77,134.83 181.46,218.55 205.98,197.01 242.57,164.87 269.2,141.48"];
+	node5 -> node6 [pos="e,420.36,153.7 367.42,134.8 381.38,139.78 396.25,145.1 410.56,150.21"];
+	node5 -> node7 [pos="e,420.36,69.877 367.42,88.783 381.38,83.798 396.25,78.486 410.56,73.376"];
+}

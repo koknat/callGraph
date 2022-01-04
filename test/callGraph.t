@@ -75,6 +75,20 @@ say $separator;
 if ( runtests('pl') ) {
     runDot( "$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot" );    # .dot creation instead of .png
     runCmpFiles( "$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.$format" );
+    
+    # directory
+    runCmpFiles( "$testDir", "-n -language pl", "$regressionDir/example.pl.dir.$format" );
+
+    eval 'use YAML::XS ()';
+    if (! $@) {
+        # -ymlOut
+        my $yml = "$regressionDir/example.pl.yml";
+        `rm $yml`;
+        runDot( "$testDir/example.pl", "-noShow -ymlOut $yml", "$regressionDir/example.pl.dot" );
+        is( -f $yml, 1, "created file $yml" );
+        # -ymlIn
+        runCmpFiles( "", "-n -r -v -ymlIn $yml -ignore say", "$regressionDir/example.pl.ymlIn.$format" );
+    }
 }
 if ( runtests('other') ) {
     # Missing .for .lua .pas
@@ -337,7 +351,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v30 Fri Sep 24 11:17:23 PDT 2021
+v32 Tue Jan  4 15:44:18 PST 2022
 
 
 This program is free software; you can redistribute it and/or modify
