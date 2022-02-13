@@ -1203,6 +1203,9 @@ if ( $output =~ /\.dot$/ ) {
     if ( $output =~ /\.svg$/ ) {
         ( $image = $dot ) =~ s/\.dot$/.svg/;
         $cmd = "dot -Tsvg $dot -o $image";
+    } elsif ( $output =~ /\.pdf$/ ) {
+        ( $image = $dot ) =~ s/\.dot$/.pdf/;
+        $cmd = "dot -Tpdf $dot -o $image";
     } else {
         # png is default
         # svg is much quicker, but for bigger graphs, the function names are not contained completely within the ovals

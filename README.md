@@ -44,6 +44,7 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
 								   If a filename ending in .dot is given,
 									 only the intermediate .dot file is created.
 								   If a filename ending in .svg is given, svg format is used
+								   If a filename ending in .pdf is given, pdf format is used
 
 		-noShow                    By default, the .png file is displayed.  This option prevents that behavior.
 
