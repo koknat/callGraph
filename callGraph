@@ -60,7 +60,7 @@ Options:
                                If a filename ending in .dot is given,
                                  only the intermediate .dot file is created.
                                If a filename ending in .svg is given, svg format is used
-                               If a filename ending in .pdf is given, pdf format is used
+                               If a filename ending in .pdf is given, PostScript format is used
 
     -noShow                    By default, the .png file is displayed.  This option prevents that behavior.
 
@@ -1220,8 +1220,13 @@ if ( $output =~ /\.dot$/ ) {
     ls $image;
     #say `ls -l $image`;  # commented because of regressions
     unless ( $opt{noShow} ) {
-        # eog is nice because it has zoom in/out
-        my $displayExecutable = whichCommand( 'eog', 'eom', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
+        my $displayExecutable;
+        if ( $output =~ /\.pdf$/ ) {
+            $displayExecutable = whichCommand( 'evince', 'gs' );
+        } else {
+            # eog is nice because it has zoom in/out
+            $displayExecutable = whichCommand( 'eog', 'eom', 'fim', 'feh', 'xdg-open', 'open', 'konqueror', 'gwenview', 'display', 'xv' );
+        }
         if ( defined $displayExecutable ) {
             $cmd = "$displayExecutable $image";
             d '$cmd';
@@ -1416,7 +1421,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v32 Tue Jan  4 15:44:18 PST 2022
+v33 Tue Feb 15 15:35:19 PST 2022
 
 
 This program is free software; you can redistribute it and/or modify
