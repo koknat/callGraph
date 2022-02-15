@@ -60,6 +60,7 @@ Options:
                                If a filename ending in .dot is given,
                                  only the intermediate .dot file is created.
                                If a filename ending in .svg is given, svg format is used
+                               If a filename ending in .pdf is given, pdf format is used
 
     -noShow                    By default, the .png file is displayed.  This option prevents that behavior.
 
@@ -270,7 +271,7 @@ if ( defined $opt{ymlIn} ) {
         $output =~ s{/*$}{/$base_name};
     }
 }
-( my $dot = $output ) =~ s/\.(dot|png|svg)$//;
+( my $dot = $output ) =~ s/\.(dot|png|svg|pdf)$//;
 $dot .= '.dot';
 
 my $call_graph;
@@ -1175,7 +1176,7 @@ if ( $opt{writeSubsetCode} ) {
 
 #exit 0 if $opt{regression};
 
-# Attempt to convert .dot to .svg or .png, using system resources
+# Attempt to convert .dot to .svg or .png or .pdf, using system resources
 if ( $output =~ /\.dot$/ ) {
     # do nothing
 } else {
@@ -1195,7 +1196,7 @@ if ( $output =~ /\.dot$/ ) {
 $graph->generate();
 ls $dot;
 
-# Attempt to convert .dot to .svg or .png, using system resources
+# Attempt to convert .dot to .svg or .png or .pdf, using system resources
 if ( $output =~ /\.dot$/ ) {
     # do nothing
 } else {
