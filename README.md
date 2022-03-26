@@ -31,6 +31,8 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
 									 are not charted.
 								   -start __MAIN__  can be very useful when multiple source files
 									 are specified on the command line
+								  The filename can be included as well:
+                                					-start <file>:<function>
 
 		-ignore <regex>            Specify function(s) to ignore.
 								   This is useful when pruning the output of a large graph.
