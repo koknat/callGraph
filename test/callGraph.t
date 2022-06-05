@@ -173,7 +173,7 @@ sub runDot {
 # Controls running of test suites (a test suite is a set of tests)
 sub runtests {
     my $testgroup = shift;
-    # $t is specifed on the command line with -t
+    # $t is specified on the command line with -t
     #     it is either
     #     -t <testgroup>
     #     or
