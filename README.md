@@ -112,7 +112,7 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
 		Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
 			and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
         
-    Acknowlegements:
+    Acknowledgements:
         This code borrows core functionality from https://github.com/cobber/perl_call_graph
 
     Requirements:
