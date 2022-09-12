@@ -331,7 +331,7 @@ sub defineSyntax {
             for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(',  # fortran .fypp is problematic because of preprocessor
             go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
             jl    => '(\s*)(?:@inline\s+)?(function)\s+([\w\.\!\$]+)\s*[^\(]*\(',
-            js    => '(\s*)(function)\s+(\w+)\s*\(',
+            js    => '(\s*)(?:async\s+)?(function)\s+(\w+)\s*\(',
             kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(',
             lua   => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(',
             m     => '(\s*)(function)[^=]*=\s*(\w+)\s*\(',                                                                                            # matlab
