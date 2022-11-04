@@ -184,12 +184,12 @@ Getopt::Long::GetOptions(
     'noShow',
     'obfuscate',
     'writeSubsetCode=s',
-    'ymlIn=s',
+	'ymlIn=s',
     'ymlOut=s',
     'writeFunctions',
     'd' => sub { $d = 1 },
 ) or usage();
-usage() if $opt{help} or ( !@ARGV and !defined $opt{ymlIn} );
+usage() if $opt{help} or ( ! @ARGV and ! defined $opt{ymlIn} );
 
 # Debugger from CPAN: "sudo cpan" "install Debug::Statements"
 sub D  { say "Debug::Statements has been disabled" }
@@ -210,29 +210,26 @@ if ($@) {
     say "        sudo cpan install GraphViz";
     exit 1;
 }
-my ( @files, $tmpdir, $output );
+my (@files, $tmpdir, $output);
 if ( defined $opt{ymlIn} ) {
     if ( defined $opt{output} ) {
         $output = $opt{output};
     } else {
-        ( $output = $opt{ymlIn} ) =~ s/\.ya?ml$//;
+        ($output = $opt{ymlIn}) =~ s/\.ya?ml$//;
     }
 } else {
     if ( -d $ARGV[0] ) {
-        die "\nERROR:  Must specify -language <language>\n" if !defined $opt{language};
+        die "\nERROR:  Must specify -language <language>\n" if ! defined $opt{language};
         my $language = $opt{language};
         $language = 'pl|.pm' if $language eq 'pl';
-        for my $dir (@ARGV) {
+        for my $dir ( @ARGV ) {
             if ( -d $dir ) {
-                find(
-                    sub {
+                find( sub {
                         return if -d $File::Find::name;
                         return unless $File::Find::name =~ /(\.$language)$/;
                         push @files, $File::Find::name;
-                    },
-                    $dir
-                );
-                if ( !@files ) {
+                    }, $dir);
+                if ( ! @files ) {
                     die "\nERROR:  Did not find any $language files in $dir/\n";
                 }
             } else {
@@ -290,26 +287,26 @@ if ( $opt{ymlIn} ) {
         exit 1;
     } else {
         say "Reading file $opt{ymlIn}";
-        $call_graph = YAML::XS::LoadFile( $opt{ymlIn} );
+        $call_graph = YAML::XS::LoadFile($opt{ymlIn});
         # Sanity check
-        my ( $calls, $called_by );
+        my ($calls, $called_by);
         for my $sub ( keys %{$call_graph} ) {
             # $call_graph->{"$caller_file:$caller_sub"}{calls}{"$caller_file:$referenced_sub"}++;
             # $call_graph->{"$caller_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
-            for my $item ( keys %{ $call_graph->{$sub} } ) {
-                $calls++     if $item eq 'calls';
+            for my $item ( keys %{$call_graph->{$sub}} ) {
+                $calls++ if $item eq 'calls';
                 $called_by++ if $item eq 'called_by';
             }
         }
         d '$call_graph $calls $called_by';
-        if ( !$calls ) {
+        if ( ! $calls ) {
             die "\nERROR:  input yml does not contain any 'calls' items!\n        The format should be similar to the one created by -ymlOut <file>\n";
         }
-        if ( !$called_by ) {
+        if ( ! $called_by ) {
             die "\nERROR:  input yml does not contain any 'called_by' items!\n        The format should be similar to the one created by -ymlOut <file>\n";
         }
     }
-    goto INTERMEDIATE_FORMAT;
+	goto INTERMEDIATE_FORMAT;
 }
 
 # Determine language
@@ -326,31 +323,31 @@ sub defineSyntax {
         # http://rigaux.org/language-study/syntax-across-languages.html
         # To add support for another language, add to the functionDefinition dictionary, and add the extension to the regex in getScriptType
         # Note that sometimes functions span lines, such as:
-        #     function foo (a,
-        #         b, c,
+        #     function foo (a, 
+        #         b, c, 
         #         d)
         #     Since the parser uses a simple line-by-line algorithm, it's helpful to only require the first parenthesis
         functionDefinition => {
-            awk  => '(\s*)(function)\s+(\w+)\s*\(',
-            bas  => '(\s*)(?:public\s+)?(function|sub)\s+(\w+)\s*\(',
-            dart => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(',                                                                          # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
-            for  => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(',    # fortran .fypp is problematic because of preprocessor
-            go   => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                                                       # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
-            jl   => '(\s*)(?:@inline\s+)?(function)\s+([\w\.\!\$]+)\s*[^\(]*\(',
-            js   => '(\s*)(?:async\s+)?(function)\s+(\w+)\s*\(',
-            kt   => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(',
-            lua  => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(',
-            m    => '(\s*)(function)[^=]*=\s*(\w+)\s*\(',                                                                                                                       # matlab
-            pas  => '(\s*)(function|procedure)\s+(\w+)\s*\(',
-            php  => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(',
-            pl   => '(\s*)(sub)\s+(\w+)',
-            py   => '(\s*)(def)\s+(\w+)\(',
+            awk   => '(\s*)(function)\s+(\w+)\s*\(',
+            bas   => '(\s*)(?:public\s+)?(function|sub)\s+(\w+)\s*\(',
+            dart  => '(\s*)((?<=main)|void|bool|int|double|String|List|Map|Runes|Symbol)\s+(\w+)\s*\(',  # Because no type is required, encountering false positive for built-in functions like 'if(...){}', so requiring that 'void' is used for any function besides 'main'
+            for   => '(\s*)(?:character\s+|complex\s+|elemental\s+|integer\s+|logical\s+|module\s+|pure\s+|real\s+|recursive\s+)*(function|program|subroutine)\s+(\w+)\s*\(',  # fortran .fypp is problematic because of preprocessor
+            go    => '(\s*)(func)\s+(?:\(.*?\))?\s*(\w+)',                                                                                             # Non-greedy because of  func (f *Field) Alive(x, y int) bool {}
+            jl    => '(\s*)(?:@inline\s+)?(function)\s+([\w\.\!\$]+)\s*[^\(]*\(',
+            js    => '(\s*)(?:async\s+)?(function)\s+(\w+)\s*\(',
+            kt    => '(\s*)(?:internal\s+|private\s+|protected\s+|public\s+)?(fun)\s+(\w+)\s*\(',
+            lua   => '(\s*)(?:local\s+)?(function)\s+([\w\.]+)\s*\(',
+            m     => '(\s*)(function)[^=]*=\s*(\w+)\s*\(',                                                                                            # matlab
+            pas   => '(\s*)(function|procedure)\s+(\w+)\s*\(',
+            php   => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(',
+            pl    => '(\s*)(sub)\s+(\w+)',
+            py    => '(\s*)(def)\s+(\w+)\(',
             #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',  # original
             #r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(.*\)',
             #r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\([^\)]*\)',
             #r     => '(\s*)()(\w+)\s+<-\s+function\s*\([^\)]*\)',
             #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(',
-            r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(',
+             r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(',
             rb    => '(\s*)(def)\s+(\w+)',
             rs    => '(\s*)(?:pub\s+)?(fn)\s+(\w+)',
             sc    => '(\s*)(?:private\s+|protected\s+)?(def)\s+(\w+)',
@@ -362,7 +359,7 @@ sub defineSyntax {
             # function byte mul (...);
             # task automatic display()
             # task sum
-            v => '(\s*)(?:virtual\s+)?(function|task)\s+(?:[^(]+)?\s+(\w+)\s*(?:$|;|\()',
+            v     => '(\s*)(?:virtual\s+)?(function|task)\s+(?:[^(]+)?\s+(\w+)\s*(?:$|;|\()',
             # C, C++, and Java syntaxes are not well suited for regexes
             #
             # Since java function does not begin with 'function' or similar, require that the opening curly brace is on the same line
@@ -441,30 +438,30 @@ sub defineSyntax {
             # Comments are removed
             awk   => '#',
             bas   => '^REM\s+',
-            c     => '//',                       # doesn't handle multiline comments /* */
-            cpp   => '//',                       # doesn't handle multiline comments /* */
-            dart  => '//',                       # doesn't handle multiline comments /* */
+            c     => '//',                         # doesn't handle multiline comments /* */
+            cpp   => '//',                         # doesn't handle multiline comments /* */
+            dart  => '//',                         # doesn't handle multiline comments /* */
             for   => '!',
             go    => '//',
-            java  => '//',                       # doesn't handle multiline comments /* */
+            java  => '//',                         # doesn't handle multiline comments /* */
             js    => '//',
             kt    => '//',
             lua   => '--',
-            jl    => '#',                        # doesn't handle multiline comments #= =#
+            jl    => '#',                          # doesn't handle multiline comments #= =#
             m     => '%',
             pas   => '(//|\{.*\}|\(\*.*\*\))',
-            php   => '(//|#)',                   # doesn't handle multiline comments /* */
-            pl    => '#',                        # unless $line =~ /s#[^#]+#[^#]+#/;
+            php   => '(//|#)',                     # doesn't handle multiline comments /* */
+            pl    => '#',                          # unless $line =~ /s#[^#]+#[^#]+#/;
             py    => '#',
             r     => '#',
             rb    => '#',
             rs    => '//',
-            sc    => '//',                       # doesn't handle multiline comments /* */
+            sc    => '//',                         # doesn't handle multiline comments /* */
             sh    => '#',
-            swift => '//',                       # doesn't handle multiline comments /* */
-            tcl   => ';?\s*#',                   # remove comments and superfluous ';'
+            swift => '//',                         # doesn't handle multiline comments /* */
+            tcl   => ';?\s*#',                     # remove comments and superfluous ';'
             ts    => '//',
-            v     => '//',                       # doesn't handle multiline comments /* */
+            v     => '//',                         # doesn't handle multiline comments /* */
         },
         variable => {
             # This only affects the global variable searching with -verbose mode
@@ -509,11 +506,11 @@ sub defineSyntax {
 
 sub parseFiles {
     # Create data structure of each function and the functions they call
-    my %options        = @_;
-    my $language       = $options{language};
+    my %options = @_;
+    my $language = $options{language};
     my $languageSyntax = $options{languageSyntax};
     my ( $file, $shebang, $in_pod, @funcName, @funcSpaces, $funcDefinition, $funcContents, $funcCall );
-    for my $file ( @{ $options{files} } ) {
+    for my $file (@{$options{files}}) {
         open my $FH, $file or die "\nERROR:  Cannot find file $file\n";
         @funcName   = ($main);
         @funcSpaces = ('');
@@ -637,17 +634,16 @@ sub parseFiles {
 }
 
 my $languageSyntax = defineSyntax($language);
-my ( $shebang, $funcContents, $funcDefinition, $funcCall ) = parseFiles( language => $language, languageSyntax => $languageSyntax, files => \@files );
-d '$funcDefinition';                                # $funcDefinition->{$funcName}{$file}{line}  = line_number
-d '$funcCall';                                      # $funcCall->{$funcName}{$file}{$word} = occurrences
+my ( $shebang, $funcContents, $funcDefinition, $funcCall ) = parseFiles(language => $language, languageSyntax => $languageSyntax, files => \@files);
+d '$funcDefinition';                            # $funcDefinition->{$funcName}{$file}{line}  = line_number
+d '$funcCall';                                  # $funcCall->{$funcName}{$file}{$word} = occurrences
 #d '$funcContents';    # $funcContents->{$funcName}{$file} = contents (long)
 
 # Experimental feature -writeFunctions
 # Optionally create an output source file for each function in the source file(s)
 if ( 1 and $opt{writeFunctions} ) {
-    writeFunctions();
+	writeFunctions();
 }
-
 sub writeFunctions {
     my %options;
     #$options{destDir} = "/tmp/foo";
@@ -655,15 +651,15 @@ sub writeFunctions {
     #$options{grep} = 'get_name';
     #$options{grep} = 'global';
     $options{sort} = 1;
-    say "\n### Grepping for $options{grep} ###";    # TODO remove this
-                                                    #$options{reverse} = 1;
-                                                    #$options{numOccurrences} = 1;
-                                                    #my $d = 1;
-                                                    #d '$funcContents';
+    say "\n### Grepping for $options{grep} ###"; # TODO remove this
+    #$options{reverse} = 1;
+    #$options{numOccurrences} = 1;
+    #my $d = 1;
+    #d '$funcContents';
     my %matched;
     for my $func ( keys %{$funcContents} ) {
         d '$func';
-        for my $file ( keys %{ $funcContents->{$func} } ) {
+        for my $file ( keys %{$funcContents->{$func}} ) {
             d '$file';
             if ( defined $options{grep} ) {
                 for my $line ( split /\n/, $funcContents->{$func}{$file} ) {
@@ -671,15 +667,15 @@ sub writeFunctions {
                     if ( $line =~ /$options{grep}/ ) {
                         $line =~ s/^\s*//;
                         $matched{$file}{$func}{occurrences}++;
-                        push @{ $matched{$file}{$func}{contents} }, '    ' . $line;
+                        push @{$matched{$file}{$func}{contents}}, '    '.$line;
                     }
                 }
                 d '%matched';
             } else {
                 my $bfile = basename($file);
-                my $ext   = '';
+                my $ext = '';
                 if ( $bfile =~ /(.*)(\..*)$/ ) {
-                    ( $bfile, $ext ) = ( $1, $2 );
+                    ($bfile, $ext) = ($1, $2);
                 }
                 my $functionFile = "$tmpdir/${bfile}__${func}${ext}";
                 say "Creating function source file $functionFile";
@@ -702,19 +698,19 @@ sub writeFunctions {
         my $printFilename = scalar keys %matched > 1 ? 1 : 0;
         d '%matched $printFilename';
         for my $file ( sort keys %matched ) {
-            my @sorted = sort { $matched{$file}{$a}{occurrences} <=> $matched{$file}{$b}{occurrences} } keys %{ $matched{$file} };
+            my @sorted = sort { $matched{$file}{$a}{occurrences} <=> $matched{$file}{$b}{occurrences} } keys %{$matched{$file}};
             @sorted = reverse @sorted if $options{reverse};
-            for my $func (@sorted) {
-                if ($printFilename) {
-                    printf( $format, $file, $func, $matched{$file}{$func}{occurrences} );
+            for my $func ( @sorted ) {
+                if ( $printFilename ) {
+                    printf($format, $file, $func, $matched{$file}{$func}{occurrences});
                 } else {
-                    printf( $format, $func, $matched{$file}{$func}{occurrences} );
+                    printf($format, $func, $matched{$file}{$func}{occurrences});
                 }
-                if ( !$options{numOccurrences} ) {
+                if ( ! $options{numOccurrences} ) {
                     if ( $options{sort} ) {
-                        say( join "\n", sort @{ $matched{$file}{$func}{contents} } );
+                        say (join "\n", sort @{$matched{$file}{$func}{contents}});
                     } else {
-                        say( join "\n", @{ $matched{$file}{$func}{contents} } );
+                        say (join "\n", @{$matched{$file}{$func}{contents}});
                     }
                 }
             }
@@ -763,39 +759,41 @@ if ( $opt{ymlOut} ) {
         exit 1;
     } else {
         say "Creating file $opt{ymlOut}";
-        YAML::XS::DumpFile( $opt{ymlOut}, $call_graph );
+        YAML::XS::DumpFile($opt{ymlOut}, $call_graph);
     }
 }
 
 if ( $opt{obfuscate} ) {
     my %cache;
     #my @gibberish = qw(aerate amplify approximate assemble benchmark calculate compile compress decode defrag delete download emulate encapsulate encode enhance exaggerate grep hypothesize infer inspect interpolate multiplex mutate obfuscate predict process procrastinate profile prune refactor rewind smite spawn swizzle transform translate);
-    my @gibberish = qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate gerrymander grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instantiate interpolate ionize irradiate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize sautee scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal squeeze steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell );
-    if ( defined $ENV{SEED} ) {
+<<<<<<< HEAD
+	my @gibberish = qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate gerrymander grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instantiate interpolate ionize irradiate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize sautee scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal squeeze steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell );
+=======
+	my @gibberish = qw( abscond acknowledge aerate amplify approximate assemble benchmark bite blast boast boil boost broadcast build burn burrow calculate captivate capture charge chortle climb clone communicate compile compress crash create crush curse decode decorate defrag delete demoralize demystify desalinate detonate devour differentiate disinfect disintegrate divulge download edit elevate embezzle emulate emulsify encapsulate enchant encode energize enhance enjoy enlarge erase exaggerate exfoliate experiment explain explode explore extract exude falsify fight flutter forecast fumble fundraise generate gerrymander grep growl hatch hover howl hurry hyperventilate hypothesize illuminate improvise infer inherit inquire insert inspect instantiate interpolate ionize irradiate jostle jump lather leap liquefy locate magnify message mock-up modify multiplex mutate obfuscate obtain overdeliver oxidize pander panic parse pasteurize peek plunder poke pontificate postulate predict process procrastinate profile propose prune publish quench refactor refine refuel relax repair repeat replace reschedule revolve rewind rinse roar ruin sanitize saute scan schedule scorch scrape search seize self-medicate serve shatter shred shrink sizzle slash sleep slurp smack smite snarl snoop socialize soothe spawn speculate squeal squeeze steer sterilize stretch struggle strut stumble stutter submit subvert superimpose supersize surprise swindle swipe swizzle taunt teleport tenderize test tilt titrate toast transform translate trim untangle upload vaccinate validate vaporize wait warp whimper whisper yell );
+>>>>>>> b7ccd978e0b117851a66cc0ebcefd837222d9fc3
+	if ( defined $ENV{SEED} ) {
         # Should be an integer
-        srand( $ENV{SEED} );
+        srand($ENV{SEED})
     }
-    $call_graph = renameFunctions( $call_graph, { cache => \%cache, ignore => [qw( __MAIN__ )], jargon => \@gibberish } );
-
+    $call_graph = renameFunctions($call_graph, {cache => \%cache, ignore => [ qw( __MAIN__ ) ], jargon => \@gibberish });
     sub renameFunctions {
-        my ( $in, $options ) = @_;
+        my ($in, $options) = @_;
         my $new;
         my $numFunctions = scalar keys %{$in};
-        my $numMapped    = scalar @{ $options->{jargon} };
-        my $numSkipped   = @{ $options->{ignore} };
+        my $numMapped = scalar @{$options->{jargon}};
+        my $numSkipped = @{$options->{ignore}};
         d '$in $options $numFunctions $numMapped';
         say "$numFunctions function names (including __MAIN__)";
         say "$numSkipped function names will not be mapped";
         say "$numMapped obfuscated names in the jargon list";
         say "WARNING:  Obfuscation needs a bigger word list, will use random words" if $numFunctions > ( $numMapped + $numSkipped );
-
-        for my $from_file_sub ( keys %{$in} ) {
+        for my $from_file_sub ( keys %{ $in } ) {
             my ( $from_file, $from_sub ) = split( /:/, $from_file_sub );
-            my $from_sub_new = transformVerbs( $from_sub, $options );
+            my $from_sub_new = transformVerbs($from_sub, $options);
             for my $calls_or_called_by ( keys %{ $in->{$from_file_sub} } ) {
                 for my $to_file_sub ( keys %{ $in->{$from_file_sub}{$calls_or_called_by} } ) {
                     my ( $to_file, $to_sub ) = split( /:/, $to_file_sub );
-                    my $to_sub_new = transformVerbs( $to_sub, $options );
+                    my $to_sub_new = transformVerbs($to_sub, $options);
                     $new->{"$from_file:$from_sub_new"}{$calls_or_called_by}{"$to_file:$to_sub_new"} = $in->{"$from_file:$from_sub"}{$calls_or_called_by}{"$to_file:$to_sub"};
                 }
             }
@@ -803,32 +801,31 @@ if ( $opt{obfuscate} ) {
         d '$new';
         return $new;
     }
-
     sub transformVerbs {
-        my ( $name, $options ) = @_;
+        my ($name, $options) = @_;
         my $cache = $options->{cache};
         my $new;
         if ( defined $cache->{$name} ) {
             # We've seen this one before
             $new = $cache->{$name};
-        } elsif ( grep( /^$name$/, @{ $options->{ignore} } ) ) {
+        } elsif ( grep( /^$name$/, @{$options->{ignore}} ) ) {
             # Keep the same name
             $new = $name;
             $cache->{$name} = $new;
-        } elsif ( !scalar @{ $options->{jargon} } ) {
+        } elsif ( ! scalar @{$options->{jargon}} ) {
             # The word list has been used up, think of a random word
-          SCRABBLE:
+            SCRABBLE:
             my @letters = split //, 'aaaaaaaaabbccddddeeeeeeeeeeeeffgggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz';
-            my $name = join '', @letters[ map rand @letters, 1 .. 9 ];
-            goto SCRABBLE if defined $cache->{$name};    # Don't re-use any random words
+            my $name = join '', @letters[map rand @letters, 1 .. 9];
+            goto SCRABBLE if defined $cache->{$name};  # Don't re-use any random words
             $new = $name;
             $cache->{$name} = $new;
         } else {
             # Grab a name out of the bag
-            my $i = rand( @{ $options->{jargon} } );
+            my $i = rand(@{$options->{jargon}});
             $new = $options->{jargon}[$i];
-            $options->{jargon}[$i] = undef;    # Ensure that same name is not mapped twice
-            @{ $options->{jargon} } = grep { defined($_) } @{ $options->{jargon} };
+            $options->{jargon}[$i] = undef;  # Ensure that same name is not mapped twice
+            @{$options->{jargon}} = grep { defined($_) } @{$options->{jargon}};
             $cache->{$name} = $new;
         }
         return $new;
@@ -855,12 +852,12 @@ if ( $opt{regression} ) {
 
 unless ( $opt{ymlIn} ) {
     my $numFuncDefinitions = scalar keys %$funcDefinition;
-    if ( !$numFuncDefinitions or !@initial_nodes ) {
+    if ( ! $numFuncDefinitions or !@initial_nodes ) {
         if ( defined $opt{start} ) {
             say "\nERROR:  Could not find any functions which match '$opt{start}'\n";
         } else {
             #say "Function definitions: " . join "\n", sort keys %$funcDefinition if $verbose;
-            if ($numFuncDefinitions) {
+            if ( $numFuncDefinitions ) {
                 say "\nERROR:  Found $numFuncDefinitions function definitions, but could not find any matching function calls in your file";
             } else {
                 say "\nERROR:  Could not find any function definitions in your file";
@@ -1119,7 +1116,7 @@ if ( $opt{ymlIn} ) {
         say "\nFunctions which are not called by any function, and do not call other functions:";
         for my $func ( sort keys %{$funcContents} ) {
             d '$func';
-            for my $file ( sort keys %{ $funcContents->{$func} } ) {
+            for my $file ( sort keys %{$funcContents->{$func}} ) {
                 d '$file';
                 # %sub_info{$file}{$func} is derived from $graph->{node}
                 # $funcContents->{$func}{$file};
@@ -1143,16 +1140,16 @@ if ( $opt{ymlIn} ) {
         }
         say "";
     }
-
+    
     # Find external scripts referenced in each function
-    if ($externalScriptCallsFound) {
+    if (  $externalScriptCallsFound ) {
         say "\nExternal scripts referenced in each function:";
         for my $file ( sort keys %sub_info ) {
             say "    " . basename($file);
             for my $sub ( sort keys %{ $sub_info{$file} } ) {
                 if ( $sub_info{$file}{$sub}{scriptsCalled} ) {
                     say "        $sub";
-                    for my $script ( sort { $a cmp $b } keys %{ $sub_info{$file}{$sub}{scriptsCalled} } ) {
+                    for my $script ( sort {$a cmp $b} keys %{ $sub_info{$file}{$sub}{scriptsCalled} } ) {
                         say "            $script";
                     }
                 }
@@ -1191,7 +1188,7 @@ if ( $opt{writeSubsetCode} ) {
 if ( $output =~ /\.dot$/ ) {
     # do nothing
 } else {
-    if ( !defined whichCommand('dot') ) {
+    if ( ! defined whichCommand('dot') ) {
         say "\nERROR:  The executable 'dot' cannot be found in your path";
         if ( -d '/home/ckoknat' ) {
             say "        Try running on a RedHat/CentOS 5 or 6 machine, such as sc-xterm-60\n";
@@ -1331,9 +1328,9 @@ sub whichCommand {
 package graph;
 # Debugger from CPAN
 sub say { print @_, "\n" }
-sub D   { say "Debug::Statements has been disabled" }
-sub d   { }
-sub ls  { }
+sub D  { say "Debug::Statements has been disabled" }
+sub d  { }
+sub ls { }
 #use lib "/home/ate/scripts/regression";
 #use Debug::Statements ":all";
 
@@ -1432,7 +1429,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v36 Fri Nov  4 16:42:06 PDT 2022
+v35 Fri Nov  4 15:58:20 PDT 2022
 
 
 This program is free software; you can redistribute it and/or modify

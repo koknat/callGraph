@@ -18,6 +18,8 @@ sub ls  { }
 # This should be run from the callGraph/test directory
 # perl callGraph.t
 
+# /home/utils/perl-5.8.8/bin/perltidy -l=0 -ce -nbbc -b callGraph
+
 # Parse options
 my %opt;
 my $d = 0;
@@ -352,7 +354,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v35 Fri Nov  4 15:58:21 PDT 2022
+v36 Fri Nov  4 16:42:06 PDT 2022
 
 
 This program is free software; you can redistribute it and/or modify
