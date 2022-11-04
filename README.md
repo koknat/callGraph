@@ -1,9 +1,9 @@
-## A multi-language tool to parse source code for function definitions and calls
+## Generate static call graphs for multiple languages
 A call graph shows how functions call each other within a program.<br>
 Each oval represents a function, and each arrow indicates a function call.<br>
 In the diagram below, the main program is represented by node MAIN.  It calls 6 functions, one of which calls 9 other functions.<br>
 <br>
-callGraph statically generates a call graph image and displays it on screen.<br>
+'callGraph' parses source code for function definitions and calls, generates a call graph image, and displays it on screen.<br>
 Supported languages are: awk, bash, basic, dart, fortran, go, lua, javascript, julia, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
 <br>
 c/c++/java are not supported, since their complex and varied syntax requires heavy machinery.<br>
@@ -31,6 +31,8 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
 									 are not charted.
 								   -start __MAIN__  can be very useful when multiple source files
 									 are specified on the command line
+								  The filename can be included as well:
+                                					-start <file>:<function>
 
 		-ignore <regex>            Specify function(s) to ignore.
 								   This is useful when pruning the output of a large graph.
@@ -110,7 +112,7 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
 		Caveats aside, it seems to work well on garden-variety scripts spanning tens of thousands of lines,
 			and has helped me unravel large pieces of legacy code to implement urgent bug fixes.
         
-    Acknowlegements:
+    Acknowledgements:
         This code borrows core functionality from https://github.com/cobber/perl_call_graph
 
     Requirements:
