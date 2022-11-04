@@ -72,13 +72,9 @@ if ($@) {
 
 my $format = 'png';
 say $separator;
+mkdir $regressionDir if ! -d $regressionDir;
+is( -d $regressionDir, 1, "Directory $regressionDir exists");
 if ( runtests('pl') ) {
-    runDot( "$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot" );    # .dot creation instead of .png
-    runCmpFiles( "$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.$format" );
-    
-    # directory
-    runCmpFiles( "$testDir", "-n -language pl", "$regressionDir/example.pl.dir.$format" );
-
     eval 'use YAML::XS ()';
     if (! $@) {
         # -ymlOut
@@ -88,6 +84,11 @@ if ( runtests('pl') ) {
         is( -f $yml, 1, "created file $yml" );
         # -ymlIn
         runCmpFiles( "", "-n -r -v -ymlIn $yml -ignore say", "$regressionDir/example.pl.ymlIn.$format" );
+    } else {
+        runDot( "$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot" );    # .dot creation instead of .png
+        runCmpFiles( "$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.$format" );
+        # directory
+        runCmpFiles( "$testDir", "-n -language pl", "$regressionDir/example.pl.dir.$format" );
     }
 }
 if ( runtests('other') ) {
@@ -150,7 +151,7 @@ sub runDot {
     $cmd = "$executable $sourceFiles";
     $cmd .= " -output $output" if defined $output;
     $cmd .= " $options";    # options may contain "> file"
-    d '$cmd';
+    D '$cmd';
     if ( !defined $output ) {
         ( $output = $sourceFiles ) =~ s/^(\S+).*/$1/;    # Use the first filename
         $output = basename($output) . '.png';
@@ -173,7 +174,7 @@ sub runDot {
 # Controls running of test suites (a test suite is a set of tests)
 sub runtests {
     my $testgroup = shift;
-    # $t is specifed on the command line with -t
+    # $t is specified on the command line with -t
     #     it is either
     #     -t <testgroup>
     #     or
@@ -351,7 +352,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v34 Tue Feb 15 15:59:30 PST 2022
+v35 Fri Nov  4 15:58:21 PDT 2022
 
 
 This program is free software; you can redistribute it and/or modify
