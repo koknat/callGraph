@@ -5,7 +5,8 @@ In the diagram below, the main program is represented by node MAIN.<br>
 It calls 6 functions, one of which calls 9 other functions.<br>
 <br>
 'callGraph' parses source code for function definitions and calls, generates a call graph image, and displays it on screen.<br>
-Supported languages are: awk, bash, basic, dart, fortran, go, lua, javascript, julia, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
+Supported languages are:<br>
+awk, bash, basic, dart, fortran, go, lua, javascript, julia, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
 <br>
 c/c++/java are not supported, since their complex and varied syntax requires heavy machinery.<br>
 
@@ -14,7 +15,7 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
     Usage:
         callGraph  <files>  <options>
 
-        If the script calls helper modules, and want the call graph to display the modules' functions,
+        If the script calls helper modules, and you want the call graph to display the modules' functions,
             list the modules explicitly on the command line:
         callGraph script.pl path/moduleA.pm path/moduleB.pm
         
