@@ -1,7 +1,8 @@
 ## Generate static call graphs for multiple languages
 A call graph shows how functions call each other within a program.<br>
-Each oval represents a function, and each arrow indicates a function call.<br>
-In the diagram below, the main program is represented by node MAIN.  It calls 6 functions, one of which calls 9 other functions.<br>
+Each oval represents a function.  Each arrow indicates a function call.<br>
+In the diagram below, the main program is represented by node MAIN.<br>
+It calls 6 functions, one of which calls 9 other functions.<br>
 <br>
 'callGraph' parses source code for function definitions and calls, generates a call graph image, and displays it on screen.<br>
 Supported languages are: awk, bash, basic, dart, fortran, go, lua, javascript, julia, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
