@@ -29,7 +29,7 @@ Purpose:
 Usage:
     $scriptName  <files>  <options>
 
-    If the script calls helper modules, and want the call graph to display the modules' functions,
+    If a script calls helper modules, and you want the call graph to display the modules' functions,
         list the modules explicitly on the command line:
     $scriptName script.pl path/moduleA.pm path/moduleB.pm
     
