@@ -124,3 +124,7 @@ c/c++/java are not supported, since their complex and varied syntax requires hea
             sudo apt install graphviz
             sudo apt install make
             sudo cpan install GraphViz
+        On Mac:
+            brew install graphviz
+            brew install cpanminus
+            sudo cpanm GraphViz
