@@ -77,6 +77,21 @@ say $separator;
 mkdir $regressionDir if ! -d $regressionDir;
 is( -d $regressionDir, 1, "Directory $regressionDir exists");
 if ( runtests('pl') ) {
+    eval 'use JSON::XS ()';
+    if (! $@) {
+        # -jsnOut
+        my $json = "$regressionDir/example.pl.json";
+        `rm $json`;
+        runDot( "$testDir/example.pl", "-noShow -jsnOut $json", "$regressionDir/example.pl.dot" );
+        is( -f $json, 1, "created file $json" );
+        # -jsnIn
+        runCmpFiles( "", "-n -r -v -jsnIn $json -ignore say", "$regressionDir/example.pl.jsnIn.$format" );
+    } else {
+        runDot( "$testDir/example.pl $testDir/example_helper_lib.pm", "-noShow", "$regressionDir/example.pl.dot" );    # .dot creation instead of .png
+        runCmpFiles( "$testDir/example.pl $testDir/example_helper_lib.pm", "-n -r -v -fullpath -ignore say", "$regressionDir/example.pl.$format" );
+        # directory
+        runCmpFiles( "$testDir", "-n -language pl", "$regressionDir/example.pl.dir.$format" );
+    }
     eval 'use YAML::XS ()';
     if (! $@) {
         # -ymlOut
@@ -153,7 +168,7 @@ sub runDot {
     $cmd = "$executable $sourceFiles";
     $cmd .= " -output $output" if defined $output;
     $cmd .= " $options";    # options may contain "> file"
-    D '$cmd';
+    d '$cmd';
     if ( !defined $output ) {
         ( $output = $sourceFiles ) =~ s/^(\S+).*/$1/;    # Use the first filename
         $output = basename($output) . '.png';
@@ -354,7 +369,7 @@ __END__
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v36 Fri Nov  4 16:42:06 PDT 2022
+v37 Wed Mar  8 17:21:32 PST 2023
 
 
 This program is free software; you can redistribute it and/or modify

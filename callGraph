@@ -29,7 +29,7 @@ Purpose:
 Usage:
     $scriptName  <files>  <options>
 
-    If the script calls helper modules, and want the call graph to display the modules' functions,
+    If a script calls helper modules, and you want the call graph to display the modules' functions,
         list the modules explicitly on the command line:
     $scriptName script.pl path/moduleA.pm path/moduleB.pm
     
@@ -73,13 +73,15 @@ Options:
                                  included in the graph.
                                This can be useful when trying to comprehend a large legacy code.
 
-    -ymlOut <file>             Create an output YAML file which describes the following for each function:
+    -jsnOut <file>
+    -ymlOut <file>             Create an output JSON/YAML file which describes the following for each function:
                                    * which functions call it
                                    * which functions it calls
                                This can be useful to create your own automation or custom formatting
 							   
-	-ymlIn <file>              Parse a YAML file instead of parsing source files
-                               The format is the same as the one created by -ymlOut
+    -jsnIn <file>
+    -ymlIn <file>              Parse a JSON/YAML file instead of parsing source files
+                               The format is the same as the one created by -jsnOut or -ymlOut
 
     -verbose                   Provides 2 additional functionalities:
                                
@@ -137,7 +139,12 @@ Requirements:
     GraphViz and the Perl GraphViz library must be installed:
         sudo apt install graphviz
         sudo apt install make
-        sudo cpan install GraphViz
+        sudo apt install cpanminus
+        sudo cpanm install GraphViz
+    On macOS:
+        brew install graphviz
+        brew install cpanminus
+        sudo cpanm GraphViz
         \n" if !-d '/home/ckoknat';
     say "\n$usage\n";
     exit 0;
@@ -184,12 +191,14 @@ Getopt::Long::GetOptions(
     'noShow',
     'obfuscate',
     'writeSubsetCode=s',
+    'jsnIn=s',
+    'jsnOut=s',
     'ymlIn=s',
     'ymlOut=s',
     'writeFunctions',
     'd' => sub { $d = 1 },
 ) or usage();
-usage() if $opt{help} or ( !@ARGV and !defined $opt{ymlIn} );
+usage() if $opt{help} or ( !@ARGV and !defined $opt{jsnIn} and !defined $opt{ymlIn} );
 
 # Debugger from CPAN: "sudo cpan" "install Debug::Statements"
 sub D  { say "Debug::Statements has been disabled" }
@@ -211,7 +220,13 @@ if ($@) {
     exit 1;
 }
 my ( @files, $tmpdir, $output );
-if ( defined $opt{ymlIn} ) {
+if ( defined $opt{jsnIn} ) {
+    if ( defined $opt{output} ) {
+        $output = $opt{output};
+    } else {
+        ( $output = $opt{jsnIn} ) =~ s/\.jso?n$//;
+    }
+} elsif ( defined $opt{ymlIn} ) {
     if ( defined $opt{output} ) {
         $output = $opt{output};
     } else {
@@ -281,7 +296,42 @@ if ( defined $opt{ymlIn} ) {
 $dot .= '.dot';
 
 my $call_graph;
-if ( $opt{ymlIn} ) {
+if ( $opt{jsnIn} ) {
+    eval 'use JSON::XS ()';
+    if ($@) {
+        say "\n$@\n";
+        say "ERROR:  Install JSON::XS to use option -jsnIn";
+        say "        sudo cpan install JSON::XS";
+        exit 1;
+    } else {
+        say "Reading file $opt{jsnIn}";
+        my $json;
+        {
+            local $/;
+            open my $fh, "<", $opt{jsnIn};
+            $json = <$fh>;
+            close $fh;
+        }
+        $call_graph = JSON::XS::decode_json($json);
+        my ( $calls, $called_by );
+        for my $sub ( keys %{$call_graph} ) {
+            # $call_graph->{"$caller_file:$caller_sub"}{calls}{"$caller_file:$referenced_sub"}++;
+            # $call_graph->{"$caller_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
+            for my $item ( keys %{ $call_graph->{$sub} } ) {
+                $calls++     if $item eq 'calls';
+                $called_by++ if $item eq 'called_by';
+            }
+        }
+        d '$call_graph $calls $called_by';
+        if ( !$calls ) {
+            die "\nERROR:  input json does not contain any 'calls' items!\n        The format should be similar to the one created by -jsnOut <file>\n";
+        }
+        if ( !$called_by ) {
+            die "\nERROR:  input json does not contain any 'called_by' items!\n        The format should be similar to the one created by -jsnOut <file>\n";
+        }
+    }
+    goto INTERMEDIATE_FORMAT;
+} elsif ( $opt{ymlIn} ) {
     eval 'use YAML::XS ()';
     if ($@) {
         say "\n$@\n";
@@ -310,6 +360,8 @@ if ( $opt{ymlIn} ) {
         }
     }
     goto INTERMEDIATE_FORMAT;
+} else {
+    # do nothing
 }
 
 # Determine language
@@ -352,7 +404,7 @@ sub defineSyntax {
             #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(',
             r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(',
             rb    => '(\s*)(def)\s+(\w+)',
-            rs    => '(\s*)(?:pub\s+)?(fn)\s+(\w+)',
+            rs    => '(\s*)(?:pub\s+|async\s+)?(fn)\s+(\w+)',
             sc    => '(\s*)(?:private\s+|protected\s+)?(def)\s+(\w+)',
             sh    => '(\s*)(function\b|)\s*(\w+)\(?\)?\s*{',
             swift => '(\s*)(?:fileprivate\s+|internal\s+|open\s+|public\s+)?(?:static\s+)?(func)\s+(\w+)',
@@ -754,7 +806,22 @@ for my $caller_sub ( keys %{$funcCall} ) {
 d '$call_graph';
 
 INTERMEDIATE_FORMAT:
-if ( $opt{ymlOut} ) {
+if ( $opt{jsnOut} ) {
+    eval 'use JSON::XS ()';
+    if ($@) {
+        say "\n$@\n";
+        say "ERROR:  Install JSON::XS to use option -jsnOut";
+        say "        sudo cpan install JSON::XS";
+        exit 1;
+    } else {
+        say "Creating file $opt{jsnOut}";
+        my $coder = JSON::XS->new->ascii->pretty;
+        my $json_text = $coder->encode($call_graph);
+        open(my $fh, '>', $opt{jsnOut}) or die "Could not open file '$opt{jsnOut}' $!";
+        print $fh $json_text;
+        close $fh;
+    }
+} elsif ( $opt{ymlOut} ) {
     eval 'use YAML::XS ()';
     if ($@) {
         say "\n$@\n";
@@ -765,6 +832,8 @@ if ( $opt{ymlOut} ) {
         say "Creating file $opt{ymlOut}";
         YAML::XS::DumpFile( $opt{ymlOut}, $call_graph );
     }
+} else {
+    # do nothing
 }
 
 if ( $opt{obfuscate} ) {
@@ -853,7 +922,9 @@ if ( $opt{regression} ) {
     print Data::Dumper->Dump( [ $funcDefinition, $funcCall, $call_graph ], [qw(funcDefinition funcCall call_graph)] );
 }
 
-unless ( $opt{ymlIn} ) {
+if ( $opt{jsnIn} or $opt{ymlIn} ) {
+    # do nothing
+} else {
     my $numFuncDefinitions = scalar keys %$funcDefinition;
     if ( !$numFuncDefinitions or !@initial_nodes ) {
         if ( defined $opt{start} ) {
@@ -905,7 +976,7 @@ d '$graph->{node}';
 #             Any variables defined in __MAIN__ are globals
 #         TCL:
 #             parses 'global' statements and global $::foo variables
-if ( $opt{ymlIn} ) {
+if ( $opt{jsnIn} or $opt{ymlIn} ) {
     # do nothing
 } elsif ( $opt{verbose} ) {
     d 'verbose';
@@ -1432,7 +1503,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v36 Fri Nov  4 16:42:06 PDT 2022
+v37 Wed Mar  8 17:21:32 PST 2023
 
 
 This program is free software; you can redistribute it and/or modify
