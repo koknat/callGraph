@@ -778,27 +778,30 @@ sub writeFunctions {
 # Match callers with callees
 # first:    try to find a match within the same file.
 # second:   see if the function is defined in ONE other file
-# third:    complain about an ambiguous call if the callee has multiple definitions
+## third:    complain about an ambiguous call if the callee has multiple definitions
 for my $caller_sub ( keys %{$funcCall} ) {
     next if ( defined $opt{ignore} and $caller_sub =~ /$opt{ignore}/ );
     for my $caller_file ( keys %{ $funcCall->{$caller_sub} } ) {
         for my $referenced_sub ( keys %{ $funcCall->{$caller_sub}{$caller_file} } ) {
             next unless ( exists $funcDefinition->{$referenced_sub} );
             next if ( defined $opt{ignore} and $referenced_sub =~ /$opt{ignore}/ );
+            my $caller_file_caller_sub = "$caller_file:$caller_sub";
+            my $caller_file_referenced_sub = "$caller_file:$referenced_sub";
 
             if ( exists $funcDefinition->{$referenced_sub}{$caller_file} ) {
-                $call_graph->{"$caller_file:$caller_sub"}{calls}{"$caller_file:$referenced_sub"}++;
-                $call_graph->{"$caller_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
-                next;
-            }
-            my (@matching_definitions) = sort keys %{ $funcDefinition->{$referenced_sub} };
-
-            if ( @matching_definitions == 1 ) {
-                my $referenced_file = shift @matching_definitions;
-                $call_graph->{"$caller_file:$caller_sub"}{calls}{"$referenced_file:$referenced_sub"}++;
-                $call_graph->{"$referenced_file:$referenced_sub"}{called_by}{"$caller_file:$caller_sub"}++;
+                #$call_graph->{$caller_file_caller_sub}{calls}{$caller_file_referenced_sub}++;  # OLD, value is always 1
+                $call_graph->{$caller_file_caller_sub}{calls}{$caller_file_referenced_sub} += $funcCall->{$caller_sub}{$caller_file}{$referenced_sub};
+                $call_graph->{$caller_file_referenced_sub}{called_by}{$caller_file_caller_sub}++;
             } else {
-                # say( "AMBIGUOUS: $caller_file:$caller_sub() -> $referenced_sub() defined in @matching_definitions" );
+                my @referenced_files = sort keys %{ $funcDefinition->{$referenced_sub} };
+                if ( @referenced_files == 1 ) {
+                    my $referenced_file_referenced_sub = "$referenced_files[0]:$referenced_sub";
+                    #$call_graph->{$caller_file_caller_sub}{calls}{$referenced_file_referenced_sub}++;  # OLD, value is always 1
+                    $call_graph->{$caller_file_caller_sub}{calls}{$referenced_file_referenced_sub} += $funcCall->{$caller_sub}{$caller_file}{$referenced_sub};
+                    $call_graph->{$referenced_file_referenced_sub}{called_by}{$caller_file_caller_sub}++;
+                } else {
+                    # say( "AMBIGUOUS: $caller_file:$caller_sub() -> $referenced_sub() defined in @referenced_files" );
+                }
             }
         }
     }
@@ -1503,7 +1506,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v37 Wed Mar  8 17:21:32 PST 2023
+v38 Wed Jun 21 14:08:12 PDT 2023
 
 
 This program is free software; you can redistribute it and/or modify
