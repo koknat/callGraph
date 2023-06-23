@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 # #!/home/utils/perl-5.8.8/bin/perl
+use utf8;
+use open qw(:std :encoding(utf8));
 use warnings;
 use strict;
 use Data::Dumper;
