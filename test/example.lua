@@ -1,6 +1,6 @@
 -- https://rosettacode.org/wiki/Card_shuffles#Lua
 
--- Return a table respresenting a standard deck of cards in order
+-- Return a table representing a standard deck of cards in order
 function newDeck ()
     local cards, suits = {}, {"C", "D", "H", "S"}
     for _, suit in pairs(suits) do
