@@ -21,7 +21,7 @@ sub usage {
 '$scriptName' by Chris Koknat  https://github.com/koknat/callGraph
 
 Purpose:
-    $scriptName is a multi-language tool to statically parse source code for function definitions and calls.
+    $scriptName is a multi-language tool which statically parses source code for function definitions and calls.
     It generates a call graph image and displays it on screen.
     The parser was designed for Perl/Python/TCL, and has been extended for other languages, such as
     awk, bash, basic, dart, fortran, go, javascript, julia, lua, kotlin, matlab, pascal, php, R, raku, 
@@ -33,13 +33,13 @@ Usage:
 
     If a script calls helper modules, and you want the call graph to display the modules' functions,
         list the modules explicitly on the command line:
-    $scriptName script.pl path/moduleA.pm path/moduleB.pm
+        $scriptName script.pl path/moduleA.pm path/moduleB.pm
     
 Options:
     -language <lang>           By default, filename extensions are parsed for .pl .pm .tcl .py, etc.
                                If those are not found, the first line of the script (#! shebang) is inspected.
                                If neither of those give clues, use this option to specify 'pl', 'tcl', 'py', etc
-							   This option is required if a directory is scanned
+                               This option is required if a directory is scanned
 
     -start <function>          Specify function(s) as starting point instead of the main code.
                                These are displayed in green.
@@ -399,11 +399,6 @@ sub defineSyntax {
             php  => '(\s*)(?:abstract\s+|final\s+|private\s+|protected\s+|public\s+)?(?:static\s+)?(function)\s+(\w+)\s*\(',
             pl   => '(\s*)(sub)\s+(\w+)',
             py   => '(\s*)(def)\s+(\w+)\(',
-            #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(.*\)',  # original
-            #r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(.*\)',
-            #r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\([^\)]*\)',
-            #r     => '(\s*)()(\w+)\s+<-\s+function\s*\([^\)]*\)',
-            #r     => '(\s*)()(\w+)\s+<-\s+function\s*\(',
             r     => '(\s*)()(\w+)\s+(?:<-|=)\s+function\s*\(',
             rb    => '(\s*)(def)\s+(\w+)',
             rs    => '(\s*)(?:pub\s+|async\s+)?(fn)\s+(\w+)',
@@ -479,7 +474,7 @@ sub defineSyntax {
             m     => '(\w+)\s*\(',
             pas   => '(\w+)\s*\(',
             php   => '(?<![\$])(\w+)\s*\(',        # (?< ...) is a negative lookahead assertion
-            pl    => '(?<![\$\%\@])(\w+)\s*\(',    # while it's possible to call functions without the '(', this is not commonly done
+            pl    => '(?<![\$\%\@])(\w+)\s*\(',    # while it's possible to call functions without the '()', this is not commonly done
             py    => '(\w+)\s*\(',
             r     => '(\w+)\s*\(',
             rb    => '(\w+)\s*',
@@ -894,7 +889,7 @@ if ( $opt{obfuscate} ) {
           SCRABBLE:
             my @letters = split //, 'aaaaaaaaabbccddddeeeeeeeeeeeeffgggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz';
             my $name = join '', @letters[ map rand @letters, 1 .. 9 ];
-            goto SCRABBLE if defined $cache->{$name};    # Don't re-use any random words
+            goto SCRABBLE if defined $cache->{$name};    # Don't reuse any random words
             $new = $name;
             $cache->{$name} = $new;
         } else {
@@ -1336,27 +1331,27 @@ sub getScriptType {
     if ( $file =~ /\.(awk|bas|c|cpp|dart|for|go|java|jl|js|kt|lua|m|pas|php|pl|py|r|rb|rs|sc|sh|swift|tcl|ts|v)$/i ) {
         $filetype = lc($1);
         return $filetype;
-    } elsif ( $file =~ /\.basic$/ ) {
+    } elsif ( $file =~ /\.basic$/i ) {
         return 'bas';
-    } elsif ( $file =~ /\.cc$/ ) {
+    } elsif ( $file =~ /\.cc$/i ) {
         return 'cpp';
-    } elsif ( $file =~ /\.(f\d+|fypp|fortran)$/ ) {
+    } elsif ( $file =~ /\.(f\d+|fypp|fortran|f\d\d$)/i ) {
         return 'for';
-    } elsif ( $file =~ /\.(gy|gvy|groovy)$/ ) {
+    } elsif ( $file =~ /\.(gy|gvy|groovy)$/i ) {
         return 'java';
-    } elsif ( $file =~ /\.p6$/ ) {
+    } elsif ( $file =~ /\.p6$/i ) {
         return 'pl';
-    } elsif ( $file =~ /\.pm$/ ) {
+    } elsif ( $file =~ /\.pm$/i ) {
         return 'pl';
-    } elsif ( $file =~ /\.raku(mod)?$/ ) {
+    } elsif ( $file =~ /\.raku(mod)?$/i ) {
         return 'pl';
-    } elsif ( $file =~ /\.scala$/ ) {
+    } elsif ( $file =~ /\.scala$/i ) {
         return 'sc';
-    } elsif ( $file =~ /\.sv$/ ) {
+    } elsif ( $file =~ /\.sv$/i ) {
         return 'v';
-    } elsif ( $file =~ /\.tn$/ ) {
+    } elsif ( $file =~ /\.tn$/i ) {
         return 'tcl';
-    } elsif ( $file =~ /\.vb$/ ) {
+    } elsif ( $file =~ /\.vb$/i ) {
         return 'bas';
     } else {
         # Filename does not have a recognized extension.  Look at the shebang
@@ -1508,7 +1503,7 @@ sub generate {
 __END__
 
 callGraph by Chris Koknat  https://github.com/koknat/callGraph
-v38 Wed Jun 21 14:08:12 PDT 2023
+v40 Wed Jan  3 17:12:13 PST 2024
 
 
 This program is free software; you can redistribute it and/or modify
