@@ -817,7 +817,7 @@ if ( $opt{obfuscate} ) {
             SCRABBLE:
             my @letters = split //, 'aaaaaaaaabbccddddeeeeeeeeeeeeffgggghhiiiiiiiiijkllllmmnnnnnnooooooooppqrrrrrrssssttttttuuuuvvwwxyyz';
             my $name = join '', @letters[map rand @letters, 1 .. 9];
-            goto SCRABBLE if defined $cache->{$name};  # Don't re-use any random words
+            goto SCRABBLE if defined $cache->{$name};  # Don't reuse any random words
             $new = $name;
             $cache->{$name} = $new;
         } else {
