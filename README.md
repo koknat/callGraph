@@ -7,8 +7,9 @@ It calls 6 functions, one of which calls 9 other functions.<br>
 'callGraph' parses source code for function definitions and calls, generates a call graph image, and displays it on screen.<br>
 Supported languages are:<br>
 awk, bash, basic, dart, fortran, go, lua, javascript, julia, kotlin, matlab, perl, pascal, php, python, R, raku, ruby, rust, scala, swift, and tcl.<br>
-<br>
 c/c++/java are not supported, since their complex and varied syntax requires heavy machinery.<br>
+<br>
+Sample output is shown below:<br>
 
 !["Sample output"](callGraph.png)
 
